@@ -12,6 +12,26 @@ test "join_url appends to the base URL unless the URL is absolute" {
     (Some("https://a.test/v1"), "http://b.test/y", "http://b.test/y"),
     (Some("https://a.test/v1"), "ftp://b.test/y", "ftp://b.test/y"),
     (Some("https://a.test"), "users:42", "https://a.test/users:42"),
+    (Some("https://a.test/v1?key=x"), "users", "https://a.test/v1/users?key=x"),
+    (
+      Some("https://a.test/v1/?key=x"),
+      "users?page=2",
+      "https://a.test/v1/users?key=x&page=2",
+    ),
+    (
+      Some("https://a.test/v1?"),
+      "users?page=2",
+      "https://a.test/v1/users?page=2",
+    ),
+    (Some("https://a.test/v1?key=x"), "users?", "https://a.test/v1/users?key=x"),
+    (Some("https://a.test/v1#top"), "users", "https://a.test/v1/users"),
+    (Some("https://a.test/v1?key=x#top"), "", "https://a.test/v1?key=x"),
+    (Some("https://a.test/v1"), "users#frag", "https://a.test/v1/users"),
+    (
+      Some("https://a.test/v1?key=x"),
+      "users#frag",
+      "https://a.test/v1/users?key=x",
+    ),
   ]
   for case in cases {
     let (base, url, expected) = case

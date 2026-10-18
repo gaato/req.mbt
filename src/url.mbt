@@ -17,17 +17,45 @@ fn scheme_length(url : String) -> Int32? {
 
 ///|
 /// Appends `url` to `base_url`, unless `url` is absolute. One `/` joins
-/// them, so a leading `/` on `url` does not discard the base URL's path.
+/// them, so a leading `/` on `url` does not discard the base URL's path. The
+/// path goes before the base URL's query, whose parameters come first in the
+/// result. Fragments are dropped: they are never sent.
 fn join_url(base_url : String?, url : String) -> String {
   guard base_url is Some(base) && scheme_length(url) is None else { return url }
+  let (base, base_query) = split_query(without_fragment(base))
+  let (path, query) = split_query(without_fragment(url))
   let base = base.trim_end(chars="/").to_owned()
-  let path = url.trim_start(chars="/").to_owned()
-  if path.is_empty() {
-    base
-  } else if path.has_prefix("?") {
-    base + path
-  } else {
-    base + "/" + path
+  let path = path.trim_start(chars="/").to_owned()
+  let joined = if path.is_empty() { base } else { base + "/" + path }
+  let query = match (base_query, query) {
+    (None, None) => ""
+    (Some(q), None) | (None, Some(q)) => "?" + q
+    (Some(a), Some(b)) =>
+      if a.is_empty() {
+        "?" + b
+      } else if b.is_empty() {
+        "?" + a
+      } else {
+        "?" + a + "&" + b
+      }
+  }
+  joined + query
+}
+
+///|
+fn without_fragment(url : String) -> String {
+  match url.find("#") {
+    Some(i) => url[:i].to_owned()
+    None => url
+  }
+}
+
+///|
+/// `url` before its first `?`, and what follows it, if there is a `?`.
+fn split_query(url : String) -> (String, String?) {
+  match url.find("?") {
+    Some(i) => (url[:i].to_owned(), Some(url[i + 1:].to_owned()))
+    None => (url, None)
   }
 }
 
@@ -44,10 +72,7 @@ fn merge_params(
 ///|
 /// `url` without its fragment, with `params` added after any query it has.
 fn merge_query(url : String, params : Array[(String, String)]) -> String {
-  let url = match url.find("#") {
-    Some(i) => url[:i].to_owned()
-    None => url
-  }
+  let url = without_fragment(url)
   let builder = StringBuilder()
   builder.write_string(url)
   let mut separator = if !url.contains("?") {
