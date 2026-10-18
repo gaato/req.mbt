@@ -1,4 +1,19 @@
 ///|
+/// An RFC 3986 URI reference: `@http.Url`, for taking apart, resolving or
+/// comparing the URLs of responses.
+///
+/// ```mbt check
+/// test {
+///   let page = @req.Url::parse("https://api.example.com/v1/items?page=1")
+///   let next = page.resolve(@req.Url::parse("items?page=2"))
+///   assert_eq(next.to_string(), "https://api.example.com/v1/items?page=2")
+///   assert_eq(next.query_params(), [("page", "2")])
+///   assert_true(page.same_origin(next))
+/// }
+/// ```
+pub type Url = @http.Url
+
+///|
 /// The length of `url`'s scheme when it starts with one followed by `://`:
 /// a letter, then letters, digits, `+`, `-` or `.`.
 fn scheme_length(url : String) -> Int32? {
@@ -70,31 +85,12 @@ fn merge_params(
 }
 
 ///|
-/// `url` without its fragment, with `params` added after any query it has.
-fn merge_query(url : String, params : Array[(String, String)]) -> String {
-  let url = without_fragment(url)
-  let builder = StringBuilder()
-  builder.write_string(url)
-  let mut separator = if !url.contains("?") {
-    "?"
-  } else if url.has_suffix("?") || url.has_suffix("&") {
-    ""
-  } else {
-    "&"
-  }
-  for pair in params {
-    builder.write_string(separator)
-    builder.write_string(@http.percent_encode(pair.0))
-    builder.write_char('=')
-    builder.write_string(@http.percent_encode(pair.1))
-    separator = "&"
-  }
-  builder.to_string()
-}
-
-///|
-/// Raises unless `url` is an absolute `http` or `https` URL with a host.
-fn check_url(url : String) -> Unit raise ReqError {
+/// `url` parsed, if it is an absolute `http` or `https` URL with a host.
+/// Parsing normalises it as `@http.Url::parse` does: lower-case scheme and
+/// host, canonical IPv6, no default port, no dot segments, and what has to
+/// be percent-encoded encoded (existing escapes kept). A space or control
+/// character is refused rather than encoded or dropped.
+fn parse_url(url : String) -> Url raise ReqError {
   for c in url {
     if c <= ' ' || c == '\u{7f}' {
       raise InvalidURL(url~, message="contains a space or control character")
@@ -107,12 +103,11 @@ fn check_url(url : String) -> Unit raise ReqError {
   if scheme != "http" && scheme != "https" {
     raise UnsupportedProtocol(url~)
   }
-  let rest = url[end + 3:]
-  let authority = match rest.find_by(c => c == '/' || c == '?' || c == '#') {
-    Some(i) => rest[:i]
-    None => rest
+  let parsed = @http.Url::parse(url) catch {
+    @http.UrlError::Invalid(message) => raise InvalidURL(url~, message~)
   }
-  if authority.is_empty() {
+  if parsed.host is (None | Some("")) {
     raise InvalidURL(url~, message="no host")
   }
+  parsed
 }

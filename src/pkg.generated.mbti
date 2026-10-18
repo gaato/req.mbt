@@ -138,4 +138,6 @@ pub using @cookie {type SameSite}
 
 pub type Step = async (@http.Request, async (@http.Request) -> Response raise ReqError) -> Response raise ReqError
 
+pub using @http {type Url}
+
 // Traits

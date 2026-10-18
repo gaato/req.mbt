@@ -28,6 +28,11 @@ never does. Every breaking change is listed with a migration note.
 - `Client::stream` and the top-level `stream`: the response arrives with its
   body on the connection, read with `read`, `read_some` or `each_chunk`,
   and closed when the callback returns.
+- `Url`, gaato/http's RFC 3986 URL, to take apart, resolve and compare
+  response URLs. A call's URL is parsed with it before sending: a bad port,
+  IPv6 literal or host raises `InvalidURL`, and the URL sent is normalised
+  (lower-case scheme and host, no default port, no dot segments, non-ASCII
+  percent-encoded).
 - `ReqError`, one error for every failure, naming the phase a transport
   failure happened in, with `is_timeout`, `is_transport_error` and
   `is_unsent`.

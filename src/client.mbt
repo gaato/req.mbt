@@ -195,6 +195,9 @@ fn Client::chain(self : Client, follow_redirects : Bool?) -> Array[Step] {
 ///|
 /// Sends a request and returns its response, whatever its status.
 ///
+/// - `url` is joined to `base_url`, then parsed and normalised as `Url`
+///   does; one that is not an absolute `http` or `https` URL is refused
+///   before anything is sent.
 /// - `params` are added to the URL's query, after the client's; a name given
 ///   here replaces the client's parameters of that name.
 /// - `headers` replace the client's headers of the same names.
@@ -336,9 +339,10 @@ fn Client::build(
   random? : () -> Double,
 ) -> Request raise ReqError {
   check_method(http_method)
-  let url = join_url(self.base_url, url)
-  check_url(url)
-  let url = merge_query(url, merge_params(self.params, params))
+  let url = parse_url(join_url(self.base_url, url))
+    .without_fragment()
+    .append_query_params(merge_params(self.params, params))
+    .to_string()
   let headers = merge_headers(self.headers, headers)
   let (content_type, body) = body.encode(random?)
   if content_type is Some(value) && !headers.contains("content-type") {

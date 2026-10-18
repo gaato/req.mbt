@@ -83,7 +83,12 @@ test "merge_params lets the call's names replace the client's" {
 }
 
 ///|
-test "merge_query adds parameters after the existing query and drops the fragment" {
+test "build adds parameters after the existing query and drops the fragment" {
+  let client = Client::new(
+    transport=MockTransport::new(_ => {
+      raise @http.HttpError::Protocol("not sent")
+    }),
+  )
   let cases : Array[(String, Array[(String, String)], String)] = [
     ("https://a.test/x", [], "https://a.test/x"),
     ("https://a.test/x", [("q", "1")], "https://a.test/x?q=1"),
@@ -93,6 +98,7 @@ test "merge_query adds parameters after the existing query and drops the fragmen
     ("https://a.test/x?a=1&", [("q", "1")], "https://a.test/x?a=1&q=1"),
     ("https://a.test/x#top", [], "https://a.test/x"),
     ("https://a.test/x?a=1#top", [("q", "1")], "https://a.test/x?a=1&q=1"),
+    ("https://a.test/x?#top", [], "https://a.test/x?"),
     (
       "https://a.test/x",
       [("a b", "c&d=e"), ("é", "/?#")],
@@ -101,12 +107,41 @@ test "merge_query adds parameters after the existing query and drops the fragmen
     ("https://a.test/x", [("q", "1"), ("r", "")], "https://a.test/x?q=1&r="),
   ]
   for case in cases {
-    assert_eq(merge_query(case.0, case.1), case.2, msg=case.0)
+    let request = client.build("GET", case.0, case.1, [], Empty)
+    assert_eq(request.url, case.2, msg=case.0)
   }
 }
 
 ///|
-test "check_url accepts absolute HTTP URLs with a host" {
+test "build normalises the URL it sends" {
+  let client = Client::new(
+    transport=MockTransport::new(_ => {
+      raise @http.HttpError::Protocol("not sent")
+    }),
+  )
+  let cases : Array[(String, String)] = [
+    ("HTTPS://Example.COM:443/a/./b/../c", "https://example.com/a/c"),
+    ("http://a.test:80/", "http://a.test/"),
+    ("http://a.test:8080/", "http://a.test:8080/"),
+    ("http://a.test?x", "http://a.test?x"),
+    ("http://[::1]/", "http://[::1]/"),
+    ("http://[2001:DB8:0:0:0:0:0:1]:8080/x", "http://[2001:db8::1]:8080/x"),
+    ("https://user:p%40ss@a.test/x", "https://user:p%40ss@a.test/x"),
+    ("https://us\u{e9}r@a.test/", "https://us%C3%A9r@a.test/"),
+    ("https://a.test/caf\u{e9}?q=\u{e9}", "https://a.test/caf%C3%A9?q=%C3%A9"),
+    ("https://a.test/a%20b?c%26d", "https://a.test/a%20b?c%26d"),
+    ("https://a.test/{x}|\"<>", "https://a.test/%7Bx%7D|%22%3C%3E"),
+    ("https://a.test/x#a%20b", "https://a.test/x"),
+    ("https://a.test/x#", "https://a.test/x"),
+  ]
+  for case in cases {
+    let request = client.build("GET", case.0, [], [], Empty)
+    assert_eq(request.url, case.1, msg=case.0)
+  }
+}
+
+///|
+test "parse_url accepts absolute HTTP URLs with a host" {
   let cases : Array[(String, String)] = [
     ("https://a.test", "ok"),
     ("HTTP://a.test:8080/x?y#z", "ok"),
@@ -124,10 +159,23 @@ test "check_url accepts absolute HTTP URLs with a host" {
     ("https://a.test/a b", "invalid: contains a space or control character"),
     ("https://a.test/\n", "invalid: contains a space or control character"),
     ("https://a.test/\u{7f}", "invalid: contains a space or control character"),
+    ("http://[::1/", "invalid: IP literal without a closing bracket"),
+    ("http://[fe80::1%25eth0]/", "invalid: IP literal is not IPv6"),
+    ("http://[v1.x]/", "invalid: IP literal is not IPv6"),
+    ("http://[::1]x/", "invalid: unexpected character after an IP literal"),
+    ("http://a.test:99999/", "invalid: port exceeds 65535"),
+    ("http://a.test:8o/", "invalid: port is not a number"),
+    ("http://a.test:/", "ok"),
+    ("http://user@/", "invalid: no host"),
+    (
+      "http://ex\u{e4}mple.test/", "invalid: non-ASCII host; pass its IDNA (xn--) form",
+    ),
+    ("http://a_b.test/", "ok"),
+    ("http://a%41.test/", "invalid: host contains \"%\""),
   ]
   for case in cases {
     let (url, expected) = case
-    let actual = try check_url(url) catch {
+    let actual = try parse_url(url) catch {
       UnsupportedProtocol(url=u) => {
         assert_eq(u, url)
         "unsupported"
