@@ -1,0 +1,21 @@
+import {
+  "gaato/http",
+  "gaato/http/clock",
+  "gaato/http-async" @adapter,
+  "gaato/sdk-runtime/multipart",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/base64",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/json",
+}
+
+import {
+  "gaato/http",
+  "gaato/http-async/mock" @simclock,
+  "gaato/sdk-runtime/multipart",
+  "moonbitlang/async",
+  "moonbitlang/async/aqueue",
+  "moonbitlang/core/encoding/utf8",
+} for "test"
+
+supported_targets = "js + native + wasm"

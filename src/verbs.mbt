@@ -1,0 +1,131 @@
+///|
+/// Sends a `GET` request: `request("GET", url, ...)`.
+pub async fn Client::get(
+  self : Client,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  timeout? : Int32,
+) -> Response raise ReqError {
+  self.request("GET", url, params~, headers~, timeout?)
+}
+
+///|
+/// Sends a `HEAD` request: `request("HEAD", url, ...)`.
+pub async fn Client::head(
+  self : Client,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  timeout? : Int32,
+) -> Response raise ReqError {
+  self.request("HEAD", url, params~, headers~, timeout?)
+}
+
+///|
+/// Sends a `OPTIONS` request: `request("OPTIONS", url, ...)`.
+pub async fn Client::options(
+  self : Client,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  timeout? : Int32,
+) -> Response raise ReqError {
+  self.request("OPTIONS", url, params~, headers~, timeout?)
+}
+
+///|
+/// Sends a `DELETE` request: `request("DELETE", url, ...)`.
+pub async fn Client::delete(
+  self : Client,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  timeout? : Int32,
+) -> Response raise ReqError {
+  self.request("DELETE", url, params~, headers~, timeout?)
+}
+
+///|
+/// Sends a `POST` request: `request("POST", url, ...)`.
+pub async fn Client::post(
+  self : Client,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  content? : Bytes,
+  text? : String,
+  data? : Array[(String, String)],
+  files? : Array[Part],
+  json? : Json,
+  timeout? : Int32,
+) -> Response raise ReqError {
+  self.request(
+    "POST",
+    url,
+    params~,
+    headers~,
+    content?,
+    text?,
+    data?,
+    files?,
+    json?,
+    timeout?,
+  )
+}
+
+///|
+/// Sends a `PUT` request: `request("PUT", url, ...)`.
+pub async fn Client::put(
+  self : Client,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  content? : Bytes,
+  text? : String,
+  data? : Array[(String, String)],
+  files? : Array[Part],
+  json? : Json,
+  timeout? : Int32,
+) -> Response raise ReqError {
+  self.request(
+    "PUT",
+    url,
+    params~,
+    headers~,
+    content?,
+    text?,
+    data?,
+    files?,
+    json?,
+    timeout?,
+  )
+}
+
+///|
+/// Sends a `PATCH` request: `request("PATCH", url, ...)`.
+pub async fn Client::patch(
+  self : Client,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  content? : Bytes,
+  text? : String,
+  data? : Array[(String, String)],
+  files? : Array[Part],
+  json? : Json,
+  timeout? : Int32,
+) -> Response raise ReqError {
+  self.request(
+    "PATCH",
+    url,
+    params~,
+    headers~,
+    content?,
+    text?,
+    data?,
+    files?,
+    json?,
+    timeout?,
+  )
+}
