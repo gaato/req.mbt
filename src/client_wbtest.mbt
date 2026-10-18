@@ -69,25 +69,14 @@ test "build: an explicit Content-Type wins over the body's" {
 }
 
 ///|
-test "Auth header values" {
-  let cases : Array[(Auth, String)] = [
-    (
-      Basic(username="Aladdin", password="open sesame"),
-      "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
-    ),
-    (Basic(username="é", password=""), "Basic w6k6"),
-    (Bearer("t0k"), "Bearer t0k"),
-  ]
-  for case in cases {
-    assert_eq(case.0.header_value(), case.1)
-  }
-}
-
-///|
 test "Auth debug output redacts secrets" {
   assert_eq(
     @debug.to_string(Basic(username="u", password="p")),
     "Basic(username=\"u\", password=<redacted>)",
   )
   assert_eq(@debug.to_string(Bearer("t")), "Bearer(<redacted>)")
+  assert_eq(
+    @debug.to_string(Digest(username="u", password="p")),
+    "Digest(username=\"u\", password=<redacted>)",
+  )
 }

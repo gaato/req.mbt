@@ -7,8 +7,17 @@ pub async fn Client::get(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
-  self.request("GET", url, params~, headers~, timeout?, follow_redirects?)
+  self.request(
+    "GET",
+    url,
+    params~,
+    headers~,
+    timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -20,8 +29,17 @@ pub async fn Client::head(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
-  self.request("HEAD", url, params~, headers~, timeout?, follow_redirects?)
+  self.request(
+    "HEAD",
+    url,
+    params~,
+    headers~,
+    timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -33,8 +51,17 @@ pub async fn Client::options(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
-  self.request("OPTIONS", url, params~, headers~, timeout?, follow_redirects?)
+  self.request(
+    "OPTIONS",
+    url,
+    params~,
+    headers~,
+    timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -46,8 +73,17 @@ pub async fn Client::delete(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
-  self.request("DELETE", url, params~, headers~, timeout?, follow_redirects?)
+  self.request(
+    "DELETE",
+    url,
+    params~,
+    headers~,
+    timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -66,6 +102,7 @@ pub async fn Client::post(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   self.request(
     "POST",
@@ -81,6 +118,7 @@ pub async fn Client::post(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
   )
 }
 
@@ -100,6 +138,7 @@ pub async fn Client::put(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   self.request(
     "PUT",
@@ -115,6 +154,7 @@ pub async fn Client::put(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
   )
 }
 
@@ -134,6 +174,7 @@ pub async fn Client::patch(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   self.request(
     "PATCH",
@@ -149,5 +190,6 @@ pub async fn Client::patch(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
   )
 }

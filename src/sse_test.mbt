@@ -67,6 +67,7 @@ fn chunks_client(
     transport=ChunksTransport::{ sent, status, headers, body, },
     headers=client_headers,
     max_body_bytes?,
+    retry=@req.Retry::none(),
   )
 }
 

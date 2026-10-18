@@ -27,6 +27,7 @@ pub async fn request(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
@@ -44,6 +45,7 @@ pub async fn request(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
   )
 }
 
@@ -64,6 +66,7 @@ pub async fn[T] stream(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
   f : async (Response) -> T,
 ) -> T {
   let client = Client::new()
@@ -82,6 +85,7 @@ pub async fn[T] stream(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
     f,
   )
 }
@@ -94,10 +98,11 @@ pub async fn get(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
-  client.get(url, params~, headers~, timeout?, follow_redirects?)
+  client.get(url, params~, headers~, timeout?, follow_redirects?, retry?)
 }
 
 ///|
@@ -108,10 +113,11 @@ pub async fn head(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
-  client.head(url, params~, headers~, timeout?, follow_redirects?)
+  client.head(url, params~, headers~, timeout?, follow_redirects?, retry?)
 }
 
 ///|
@@ -122,10 +128,11 @@ pub async fn options(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
-  client.options(url, params~, headers~, timeout?, follow_redirects?)
+  client.options(url, params~, headers~, timeout?, follow_redirects?, retry?)
 }
 
 ///|
@@ -136,10 +143,11 @@ pub async fn delete(
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
-  client.delete(url, params~, headers~, timeout?, follow_redirects?)
+  client.delete(url, params~, headers~, timeout?, follow_redirects?, retry?)
 }
 
 ///|
@@ -157,6 +165,7 @@ pub async fn post(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
@@ -173,6 +182,7 @@ pub async fn post(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
   )
 }
 
@@ -191,6 +201,7 @@ pub async fn put(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
@@ -207,6 +218,7 @@ pub async fn put(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
   )
 }
 
@@ -225,6 +237,7 @@ pub async fn patch(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let client = Client::new()
   defer client.close()
@@ -241,5 +254,6 @@ pub async fn patch(
     body_length?,
     timeout?,
     follow_redirects?,
+    retry?,
   )
 }

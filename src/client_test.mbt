@@ -58,6 +58,12 @@ async test "auth sets Authorization unless the call sets it" {
   let cases : Array[(@req.Auth, Array[(String, String)], String)] = [
     (Bearer("t"), [], "Bearer t"),
     (Basic(username="u", password="p"), [], "Basic dTpw"),
+    (
+      Basic(username="Aladdin", password="open sesame"),
+      [],
+      "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
+    ),
+    (Basic(username="é", password=""), [], "Basic w6k6"),
     (Bearer("t"), [("Authorization", "Token x")], "Token x"),
   ]
   for case in cases {
@@ -253,6 +259,7 @@ async test "hooks can raise, as raise_for_status does" {
   let client = @req.Client::new(
     steps=[@req.on_response(response => ignore(response.raise_for_status()))],
     transport=recorder([], status=500),
+    retry=@req.Retry::none(),
   )
   let outcome = try client.get("https://a.test/") catch {
     Status(response~, ..) => response.status
@@ -278,6 +285,7 @@ async test "transport failures surface as error variants carrying the request" {
   for case in cases {
     let client = @req.Client::new(
       transport=@req.MockTransport::new(_ => raise case.0),
+      retry=@req.Retry::none(),
     )
     let outcome = try client.get("https://a.test/x") catch {
       Network(request~, phase~, message~) if request.url == "https://a.test/x" =>

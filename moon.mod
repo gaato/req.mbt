@@ -25,4 +25,5 @@ import {
   "gaato/http-async@0.3.0",
   "gaato/sdk-runtime@0.4.0",
   "moonbitlang/async@0.22.5",
+  "moonbitlang/x@0.5.5",
 }

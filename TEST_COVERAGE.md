@@ -39,7 +39,7 @@ ledger OK, 1 = an unexplained or over-budget file, 2 = the run itself failed
 - moon's bundled tcc cannot link on some hosts (openSUSE); the script sets
   `MOON_CC=cc` unless it is already set.
 
-Snapshot at the last full measurement (2026-10-18): **99.5 %** (390/392
+Snapshot at the last full measurement (2026-10-18): **99.7 %** (586/588
 lines).
 
 ## Policy
@@ -48,11 +48,12 @@ Must be covered by tests:
 
 - the pure decisions: URL joining, query and header merging, URL and method
   checks, body selection and encoding, status classes, error mapping and
-  messages, line splitting and the event-stream checks;
+  messages, line splitting and the event-stream checks, retry decisions and
+  backoff, Digest challenge parsing, response computation and nonce state;
 - every `raise` arm reachable through the public API;
 - the client, the verbs, the top-level functions, the step chain, the
-  timeout and the streamed readers (chunks, lines, events), through
-  `MockTransport` and `VirtualClock`.
+  timeout, retries, Digest and the streamed readers (chunks, lines, events),
+  through `MockTransport` and `VirtualClock`.
 
 Accepted as uncovered (needs a row):
 

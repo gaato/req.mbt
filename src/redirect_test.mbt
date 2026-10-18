@@ -250,6 +250,7 @@ async test "a stream body is not sent again on 307, and dropped on 303" {
 ///|
 async test "a failure on a later hop is raised as it is" {
   let client = @req.Client::new(
+    retry=@req.Retry::none(),
     transport=@req.MockTransport::new(request => {
       guard request.url == "https://a.test/1" else {
         raise @http.HttpError::Connect("refused")

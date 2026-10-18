@@ -32,7 +32,11 @@ fn outcome_of(
 async test "an exchange times out after 30 s on the client's clock by default" {
   let clock = @simclock.VirtualClock()
   let release : @aqueue.Queue[Int32] = Queue(kind=Unbounded)
-  let client = @req.Client::new(transport=held(release), clock~)
+  let client = @req.Client::new(
+    transport=held(release),
+    clock~,
+    retry=@req.Retry::none(),
+  )
   @async.with_task_group(group => {
     let outcome = outcome_of(group, () => client.get("https://a.test/"))
     clock.advance(29_999)
@@ -47,7 +51,12 @@ async test "an exchange times out after 30 s on the client's clock by default" {
 async test "timeout is set per client and replaced per call" {
   let clock = @simclock.VirtualClock()
   let release : @aqueue.Queue[Int32] = Queue(kind=Unbounded)
-  let client = @req.Client::new(transport=held(release), clock~, timeout=100)
+  let client = @req.Client::new(
+    transport=held(release),
+    clock~,
+    timeout=100,
+    retry=@req.Retry::none(),
+  )
   @async.with_task_group(group => {
     let by_client = outcome_of(group, () => client.get("https://a.test/"))
     let by_call = outcome_of(group, () => {

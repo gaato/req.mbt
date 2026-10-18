@@ -6,6 +6,13 @@ pub(all) enum Auth {
   Basic(username~ : String, password~ : String)
   /// `Bearer <token>`.
   Bearer(String)
+  /// HTTP Digest (RFC 7616, and RFC 2617's challenges without qop): a 401
+  /// with a `Digest` challenge from the request's origin is answered once
+  /// (twice if the first answer's nonce was stale) by sending the request
+  /// again, when its body can be; the nonce is reused, with a counted `nc`,
+  /// for that origin's later calls. MD5, SHA-256 and their `-sess` forms,
+  /// qop `auth`, and `auth-int` for a body in memory.
+  Digest(username~ : String, password~ : String)
 }
 
 ///|
@@ -22,26 +29,37 @@ pub impl @debug.Debug for Auth with fn to_repr(self) {
         (Some("password"), redacted),
       ])
     Bearer(_) => @debug.Repr::ctor("Bearer", [(None, redacted)])
+    Digest(username~, ..) =>
+      @debug.Repr::ctor("Digest", [
+        (Some("username"), @debug.Repr::Repr(username)),
+        (Some("password"), redacted),
+      ])
   }
 }
 
 ///|
-/// The `Authorization` header value.
-fn Auth::header_value(self : Auth) -> String {
-  match self {
+/// The step that authorizes requests that do not set `Authorization`
+/// themselves. `random` draws Digest's client nonces.
+fn auth_step(auth : Auth, random : () -> Double) -> Step {
+  match auth {
     Basic(username~, password~) =>
-      "Basic " + @base64.encode(@utf8.encode(username + ":" + password))
-    Bearer(token) => "Bearer " + token
+      header_step(
+        "Basic " + @base64.encode(@utf8.encode(username + ":" + password)),
+      )
+    Bearer(token) => header_step("Bearer " + token)
+    Digest(username~, password~) => digest_step(username, password, random)
   }
 }
 
 ///|
-/// The step that sets `Authorization` on requests that do not have it.
-fn auth_step(auth : Auth) -> Step {
+/// The step that sets `Authorization: <value>` on requests without it.
+fn header_step(value : String) -> Step {
   (request, next) => {
-    if !request.headers.contains("authorization") {
-      request.headers.set("authorization", auth.header_value())
+    guard !request.headers.contains("authorization") else {
+      return next(request)
     }
-    next(request)
+    let headers = copy_headers(request.headers)
+    headers.set("authorization", value)
+    next({ ..request, headers, })
   }
 }

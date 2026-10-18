@@ -43,6 +43,17 @@ never does. Every breaking change is listed with a migration note.
 - `ReqError`, one error for every failure, naming the phase a transport
   failure happened in, with `is_timeout`, `is_transport_error` and
   `is_unsent`.
+- Retries, on by default: `Retry::new` (3 retries of GET, HEAD, OPTIONS,
+  PUT, DELETE and TRACE on 408, 429, 500, 502, 503, 504, `Timeout` and
+  `Network`, and of any method when nothing reached the server) and
+  `Retry::none()`, per client and per call (`retry`). `Retry-After` is
+  honoured up to 60 s, otherwise the wait is exponential with full jitter on
+  the client's clock; a body that streams is never sent twice.
+- `Auth::Digest` (RFC 7616 and RFC 2617): MD5, SHA-256 and their `-sess`
+  forms, qop `auth` and `auth-int`, `userhash`, stale nonces, and nonce
+  reuse per origin with a counted `nc`.
+- `Client::new(random~)`, the source of retry jitter, Digest client nonces
+  and multipart boundaries.
 - `Step`, a link of the chain around the transport, and the `on_request` and
   `on_response` hooks built on it.
 - `MockTransport`, a transport that answers with a function, for tests.

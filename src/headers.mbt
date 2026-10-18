@@ -17,3 +17,9 @@ fn merge_headers(
   }
   merged
 }
+
+///|
+/// A copy of `headers` that can be changed without changing them.
+fn copy_headers(headers : @http.Headers) -> @http.Headers {
+  merge_headers(headers, [])
+}

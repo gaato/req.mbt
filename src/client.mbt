@@ -31,6 +31,9 @@ pub struct Client {
   priv follow_redirects : Bool
   priv max_redirects : Int32
   priv jar : CookieJar?
+  priv retry : Retry
+  priv auth : Step?
+  priv random : () -> Double
   priv transport : &@http.Transport
   priv clock : &@clock.Clock
   priv owned : @adapter.AsyncTransport?
@@ -52,7 +55,11 @@ pub struct Client {
 ///   after decoding; `None` lifts it. The default transport applies it to
 ///   each call; `Response::read` applies it to a streamed body.
 /// - `steps`: links of the chain around the transport, the first outermost;
-///   they see each request before `auth` is applied.
+///   they see each request before `retry` and `auth`.
+/// - `retry`: when a call is sent again, `Retry::new()` by default: up to 3
+///   retries of idempotent methods on 408, 429, 500, 502, 503, 504 and
+///   transport failures, of any method when nothing was sent;
+///   `Retry::none()` turns it off.
 /// - `follow_redirects`: follows 301, 302, 303, 307 and 308 responses, at
 ///   most `max_redirects` (10) in a row, as gaato/http's `follow_redirects`
 ///   does: 303, and 301 or 302 after `POST`, turn into `GET` without the
@@ -65,7 +72,9 @@ pub struct Client {
 ///   applied on every redirect hop. `Jar(jar)` uses `jar` instead, `Off`
 ///   keeps none.
 /// - `transport`: replaces the default `AsyncTransport` of gaato/http-async.
-/// - `clock`: measures `timeout` and `elapsed`.
+/// - `clock`: measures `timeout` and `elapsed`, and waits between retries.
+/// - `random`: values in `[0, 1)` for retry jitter, Digest client nonces and
+///   multipart boundaries; host randomness by default.
 ///
 /// These configure the default transport and are ignored with `transport`:
 ///
@@ -102,8 +111,10 @@ pub fn Client::new(
   follow_redirects~ : Bool = true,
   max_redirects~ : Int32 = default_max_redirects,
   cookies? : Cookies,
+  retry~ : Retry = Retry::new(),
   transport? : &@http.Transport,
   clock? : &@clock.Clock,
+  random? : () -> Double,
   connect_timeout? : Int32,
   write_timeout? : Int32,
   read_timeout? : Int32,
@@ -115,10 +126,7 @@ pub fn Client::new(
   trust_env~ : Bool = true,
 ) -> Client {
   let defaults = @http.Headers::from_array([("user-agent", user_agent)])
-  let steps = match auth {
-    Some(auth) => [..steps, auth_step(auth)]
-    None => [..steps]
-  }
+  let random = random.unwrap_or(@runtime.default_random)
   let (transport, owned) = match transport {
     Some(transport) => (transport, None)
     None => {
@@ -145,7 +153,10 @@ pub fn Client::new(
     params: [..params],
     timeout,
     max_body_bytes,
-    steps,
+    steps: [..steps],
+    retry,
+    auth: auth.map(auth => auth_step(auth, random)),
+    random,
     follow_redirects,
     max_redirects,
     jar: cookie_jar(cookies, clock),
@@ -179,20 +190,6 @@ pub fn Client::cookies(self : Client) -> CookieJar? {
 }
 
 ///|
-/// The client's steps, then the redirect step unless `follow_redirects` is
-/// off, then the cookie step: the chain of one call.
-fn Client::chain(self : Client, follow_redirects : Bool?) -> Array[Step] {
-  let steps = [..self.steps]
-  if follow_redirects.unwrap_or(self.follow_redirects) {
-    steps.push(redirect_step(self.max_redirects))
-  }
-  if self.jar is Some(jar) {
-    steps.push(cookie_step(jar))
-  }
-  steps
-}
-
-///|
 /// Sends a request and returns its response, whatever its status.
 ///
 /// - `url` is joined to `base_url`, then parsed and normalised as `Url`
@@ -209,7 +206,7 @@ fn Client::chain(self : Client, follow_redirects : Bool?) -> Array[Step] {
 ///   headers wins over the implied one. A body that streams, including
 ///   files made with `Part::file_stream`, is sent at most once: retries and
 ///   redirects that would send it again stop instead.
-/// - `timeout` replaces the client's for this call.
+/// - `timeout` and `retry` replace the client's for this call.
 /// - `follow_redirects` replaces the client's for this call. The response
 ///   carries the redirects followed in `history` and the final URL in `url`.
 pub async fn Client::request(
@@ -227,6 +224,7 @@ pub async fn Client::request(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
 ) -> Response raise ReqError {
   let request = self.build(
     http_method,
@@ -245,7 +243,7 @@ pub async fn Client::request(
   )
   let timeout = timeout.unwrap_or(self.timeout)
   run_steps(
-    self.chain(follow_redirects),
+    self.chain(retry.unwrap_or(self.retry), follow_redirects),
     request => self.exchange(request, timeout, stream=false),
     request,
   )
@@ -292,6 +290,7 @@ pub async fn[T] Client::stream(
   body_length? : Int64,
   timeout? : Int32,
   follow_redirects? : Bool,
+  retry? : Retry,
   f : async (Response) -> T,
 ) -> T {
   let request = self.build(
@@ -316,7 +315,7 @@ pub async fn[T] Client::stream(
   let opened : Array[Response] = []
   defer opened.each(response => response.close())
   let response = run_steps(
-    self.chain(follow_redirects),
+    self.chain(retry.unwrap_or(self.retry), follow_redirects),
     request => {
       let response = self.exchange(request, timeout, stream=true)
       opened.push(response)
@@ -328,6 +327,28 @@ pub async fn[T] Client::stream(
 }
 
 ///|
+/// The chain of one call, outermost first: the client's steps, the retry
+/// step, `auth`, the redirect step unless `follow_redirects` is off, then
+/// the cookie step.
+fn Client::chain(
+  self : Client,
+  retry : Retry,
+  follow_redirects : Bool?,
+) -> Array[Step] {
+  let chain = [..self.steps, retry_step(retry, self.clock, self.random)]
+  if self.auth is Some(auth) {
+    chain.push(auth)
+  }
+  if follow_redirects.unwrap_or(self.follow_redirects) {
+    chain.push(redirect_step(self.max_redirects))
+  }
+  if self.jar is Some(jar) {
+    chain.push(cookie_step(jar))
+  }
+  chain
+}
+
+///|
 /// The request a call describes, before the steps.
 fn Client::build(
   self : Client,
@@ -336,7 +357,6 @@ fn Client::build(
   params : Array[(String, String)],
   headers : Array[(String, String)],
   body : Body,
-  random? : () -> Double,
 ) -> Request raise ReqError {
   check_method(http_method)
   let url = parse_url(join_url(self.base_url, url))
@@ -344,7 +364,7 @@ fn Client::build(
     .append_query_params(merge_params(self.params, params))
     .to_string()
   let headers = merge_headers(self.headers, headers)
-  let (content_type, body) = body.encode(random?)
+  let (content_type, body) = body.encode(random=self.random)
   if content_type is Some(value) && !headers.contains("content-type") {
     headers.set("content-type", value)
   }
@@ -354,16 +374,7 @@ fn Client::build(
 ///|
 /// Raises unless `http_method` is an HTTP token.
 fn check_method(http_method : String) -> Unit raise ReqError {
-  let token = !http_method.is_empty() &&
-    http_method
-    .iter()
-    .all(c => {
-      (c >= 'a' && c <= 'z') ||
-      (c >= 'A' && c <= 'Z') ||
-      (c >= '0' && c <= '9') ||
-      "!#$%&'*+-.^_`|~".contains_char(c)
-    })
-  if !token {
+  if http_method.is_empty() || !http_method.iter().all(is_tchar) {
     raise InvalidRequest(message="invalid method: \{http_method}")
   }
 }

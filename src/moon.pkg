@@ -10,6 +10,7 @@ import {
   "moonbitlang/core/encoding/base64",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
+  "moonbitlang/x/crypto",
 }
 
 import {
@@ -22,5 +23,9 @@ import {
   "moonbitlang/async/aqueue",
   "moonbitlang/core/encoding/utf8",
 } for "test"
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
 
 supported_targets = "js + native + wasm"
