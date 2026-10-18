@@ -4,7 +4,7 @@
 
 name = "gaato/requesto"
 
-version = "0.1.1"
+version = "0.1.2"
 
 license = "Apache-2.0"
 
@@ -22,7 +22,7 @@ preferred_target = "native"
 
 import {
   "gaato/http@0.3.1",
-  "gaato/http-async@0.3.0",
+  "gaato/http-async@0.4.0",
   "moonbitlang/async@0.22.5",
   "moonbitlang/x@0.5.5",
 }

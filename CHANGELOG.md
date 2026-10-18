@@ -7,6 +7,16 @@ never does. Every breaking change is listed with a migration note.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-19
+
+### Changed
+
+- Built on `gaato/http-async` 0.4.0: on native and Wasm, a request without
+  its own `Accept-Encoding` now offers `zstd` too (`gzip, deflate, br, zstd`)
+  and a `zstd` response body is decoded like the others, with its window
+  capped at 8 MiB (RFC 9659). A request that sets `Accept-Encoding` itself
+  still gets the body as sent.
+
 ## [0.1.1] - 2026-10-19
 
 ### Changed
