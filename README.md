@@ -60,7 +60,6 @@ Not yet: HTTP/2, response caching. On JS, `fetch` follows redirects before the c
 | Read JSON | `.json()` | `.json()` / `data` | `.body` | `.json()`, `.json_as()` |
 | Redirects | `follow_redirects=`, `.history` | `maxRedirects` / `redirect` | `redirect:`, `max_redirects:` | `follow_redirects=`, `max_redirects=`, `.history` |
 | Cookies | `client.cookies` | the browser's | — | `client.cookies()`, `cookies=Jar(jar)` |
-| Retries | urllib3 `Retry` / `retries=` | `retry` (ky) | `retry:` | built in, with backoff |
 | Streaming | `client.stream(...)`, `iter_lines()` | `responseType: 'stream'` | `into: fun` | `client.stream(...)`, `each_line` |
 | SSE | `httpx_sse.connect_sse` | `EventSource` | — | `client.sse(...)`, `each_event` |
 | Timeouts | `httpx.Timeout(connect=...)` | `timeout` | `receive_timeout:` | `timeout=`, `connect_timeout=`, ... |
