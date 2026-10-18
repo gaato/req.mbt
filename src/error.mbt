@@ -1,7 +1,7 @@
 ///|
 /// Why a call failed. Transport failures carry the request being sent;
 /// `Status` carries the response that `raise_for_status` refused.
-pub(all) suberror ReqError {
+pub(all) suberror RequestoError {
   /// A time limit of `timeout` milliseconds ran out during `phase`: one of
   /// the transport's per-phase limits, or `Unknown` for the call's
   /// `timeout`, which spans the phases.
@@ -44,10 +44,10 @@ pub(all) suberror ReqError {
 /// Debug output names the request by method and URL and the response by
 /// status, so headers such as `Authorization` never appear in it, and
 /// credentials in a URL are redacted.
-pub extend ReqError with @debug.Debug::{to_repr}
+pub extend RequestoError with @debug.Debug::{to_repr}
 
 ///|
-pub impl @debug.Debug for ReqError with fn to_repr(self) {
+pub impl @debug.Debug for RequestoError with fn to_repr(self) {
   let request = (request : Request) => {
     @debug.Repr::literal(request.http_method + " " + redact_url(request.url))
   }
@@ -114,12 +114,12 @@ pub impl @debug.Debug for ReqError with fn to_repr(self) {
 
 ///|
 /// The error's one-line message.
-pub extend ReqError with Show::{to_string, output}
+pub extend RequestoError with Show::{to_string, output}
 
 ///|
 /// A one-line message naming the request by method and URL, without headers
 /// or bodies.
-pub impl Show for ReqError with fn output(self, logger) {
+pub impl Show for RequestoError with fn output(self, logger) {
   let target = (request : Request) => {
     request.http_method + " " + redact_url(request.url)
   }
@@ -153,14 +153,14 @@ pub impl Show for ReqError with fn output(self, logger) {
 
 ///|
 /// Whether a time limit ran out.
-pub fn ReqError::is_timeout(self : ReqError) -> Bool {
+pub fn RequestoError::is_timeout(self : RequestoError) -> Bool {
   self is Timeout(..)
 }
 
 ///|
 /// Whether sending failed below HTTP: `Timeout`, `Network`, `Protocol`,
 /// `Proxy` or `UnsupportedProtocol`.
-pub fn ReqError::is_transport_error(self : ReqError) -> Bool {
+pub fn RequestoError::is_transport_error(self : RequestoError) -> Bool {
   match self {
     Timeout(..)
     | Network(..)
@@ -184,7 +184,7 @@ pub fn ReqError::is_transport_error(self : ReqError) -> Bool {
 /// connection or making one, or the proxy refused the tunnel. A request
 /// refused before the transport, such as `InvalidURL`, is not counted: it
 /// would fail the same way again.
-pub fn ReqError::is_unsent(self : ReqError) -> Bool {
+pub fn RequestoError::is_unsent(self : RequestoError) -> Bool {
   match self {
     Timeout(phase~, ..) | Network(phase~, ..) => phase is (Pool | Dial)
     Proxy(..) => true
@@ -195,7 +195,7 @@ pub fn ReqError::is_unsent(self : ReqError) -> Bool {
 ///|
 /// Maps a failure of the transport for `request`. The transport raises
 /// only `@http.HttpError`; anything else is reported as `Protocol`.
-fn map_transport_error(error : Error, request : Request) -> ReqError {
+fn map_transport_error(error : Error, request : Request) -> RequestoError {
   match error {
     @http.HttpError::Connect(message) => Network(request~, phase=Dial, message~)
     @http.HttpError::Timeout(phase~, ms~) =>

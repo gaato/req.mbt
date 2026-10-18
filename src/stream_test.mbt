@@ -47,8 +47,8 @@ fn fed_client(
   buffered~ : Bytes = b"",
   clock? : &@clock.Clock,
   max_body_bytes? : Int32?,
-) -> @req.Client {
-  @req.Client::new(
+) -> @requesto.Client {
+  @requesto.Client::new(
     transport=FedTransport::{ body, buffered, },
     clock?,
     max_body_bytes?,
@@ -59,11 +59,11 @@ fn fed_client(
 /// What a body operation returned, or the variant it raised.
 fn variant(error : Error) -> String {
   match error {
-    @req.ReqError::ResponseNotRead(..) => "ResponseNotRead"
-    @req.ReqError::StreamConsumed(..) => "StreamConsumed"
-    @req.ReqError::Timeout(phase~, timeout~, ..) =>
+    @requesto.RequestoError::ResponseNotRead(..) => "ResponseNotRead"
+    @requesto.RequestoError::StreamConsumed(..) => "StreamConsumed"
+    @requesto.RequestoError::Timeout(phase~, timeout~, ..) =>
       "Timeout \{@debug.to_string(phase)} \{timeout}"
-    @req.ReqError::Protocol(message~, ..) => "Protocol \{message}"
+    @requesto.RequestoError::Protocol(message~, ..) => "Protocol \{message}"
     error => "unexpected \{error}"
   }
 }
@@ -138,7 +138,7 @@ suberror Stop
 async test "a streamed body is closed when f raises, and reads after close refuse" {
   let body = Fed::new()
   let client = fed_client(body)
-  let kept : Ref[@req.Response?] = Ref(None)
+  let kept : Ref[@requesto.Response?] = Ref(None)
   let outcome = try {
     let _ : Unit = client.stream("GET", "https://a.test/", response => {
       kept.val = Some(response)
@@ -242,7 +242,10 @@ async test "a buffered response reads as one chunk and keeps its content" {
   assert_eq(response.content(), b"whole")
   response.close()
   assert_eq(response.text(), "whole", msg="close leaves a buffered body")
-  let empty = @req.Response::new(204, @http.Request::get("https://a.test/"))
+  let empty = @requesto.Response::new(
+    204,
+    @http.Request::get("https://a.test/"),
+  )
   assert_eq(empty.read_some(), None)
 }
 
@@ -285,14 +288,14 @@ impl @http.Transport for ResetTransport with fn send_stream(self, _) {
 ///|
 async test "a connection lost while reading a streamed body raises Network and closes it" {
   let body = Reset::{ sent: false, closed: 0, }
-  let client = @req.Client::new(transport=ResetTransport::{ body, })
+  let client = @requesto.Client::new(transport=ResetTransport::{ body, })
   let outcome = try {
     let _ : Unit = client.stream("GET", "https://a.test/", response => {
       response.each_chunk(_ => ())
     })
     "ended"
   } catch {
-    @req.ReqError::Network(phase~, message~, ..) =>
+    @requesto.RequestoError::Network(phase~, message~, ..) =>
       "Network \{@debug.to_string(phase)} \{message}"
     error => "unexpected \{error}"
   }
@@ -303,11 +306,14 @@ async test "a connection lost while reading a streamed body raises Network and c
 ///|
 async test "a step that raises over a streamed response still closes it" {
   let refused = Fed::new()
-  let failing = @req.Client::new(
+  let failing = @requesto.Client::new(
     transport=FedTransport::{ body: refused, buffered: b"", },
     steps=[
-      @req.on_response(response => {
-        raise @req.ReqError::Status(request=response.request, response~)
+      @requesto.on_response(response => {
+        raise @requesto.RequestoError::Status(
+          request=response.request,
+          response~,
+        )
       }),
     ],
   )
@@ -315,7 +321,7 @@ async test "a step that raises over a streamed response still closes it" {
     let _ : Unit = failing.stream("GET", "https://a.test/", _ => ())
     "returned"
   } catch {
-    @req.ReqError::Status(..) => "Status"
+    @requesto.RequestoError::Status(..) => "Status"
     error => "unexpected \{error}"
   }
   assert_eq(outcome, "Status")

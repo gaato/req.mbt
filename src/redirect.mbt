@@ -1,5 +1,5 @@
 // Redirects follow gaato/http's `follow_redirects`, the policy of the WHATWG
-// Fetch Standard and httpx: this file only carries req's responses and
+// Fetch Standard and httpx: this file only carries requesto's responses and
 // errors through it.
 
 ///|
@@ -23,7 +23,7 @@ fn redirect_step(max_redirects : Int32) -> Step {
     let mut received : Response? = None
     // A failure of the rest of the chain, carried through the lower layer's
     // `HttpError` unchanged.
-    let mut failure : ReqError? = None
+    let mut failure : RequestoError? = None
     let _ = @http.follow_redirects(
       request,
       request => {
@@ -61,9 +61,12 @@ fn redirect_step(max_redirects : Int32) -> Step {
 }
 
 ///|
-/// The `ReqError` for a redirect refused while following from `request`,
+/// The `RequestoError` for a redirect refused while following from `request`,
 /// the last request sent.
-fn redirect_error(error : @http.RedirectError, request : Request) -> ReqError {
+fn redirect_error(
+  error : @http.RedirectError,
+  request : Request,
+) -> RequestoError {
   match error {
     Transport(error) => map_transport_error(error, request)
     TooManyRedirects(max~, ..) => TooManyRedirects(request~, max~)

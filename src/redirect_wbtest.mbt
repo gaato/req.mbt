@@ -11,7 +11,7 @@ test "defaults: 10 redirects in a row, a jar of 50 cookies per domain and 3000 i
 }
 
 ///|
-test "redirect_error maps each refusal to a ReqError naming the last request" {
+test "redirect_error maps each refusal to a RequestoError naming the last request" {
   let request = @http.Request::get("https://a.test/x")
   let cases : Array[(@http.RedirectError, String)] = [
     (

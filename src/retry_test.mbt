@@ -10,10 +10,10 @@ enum Answer {
 /// last one again once they run out. Like a real transport, it takes a
 /// stream body when it answers, and not when it fails to connect.
 fn scripted(
-  sent : Array[@req.Request],
+  sent : Array[@requesto.Request],
   answers : Array[Answer],
-) -> @req.MockTransport {
-  @req.MockTransport::new(request => {
+) -> @requesto.MockTransport {
+  @requesto.MockTransport::new(request => {
     sent.push(request)
     match answers[(sent.length() - 1).min(answers.length() - 1)] {
       Status(status, headers) => {
@@ -32,7 +32,7 @@ fn scripted(
 /// the status, or the error's message.
 fn run_bg(
   group : @async.TaskGroup[Unit],
-  call : async () -> @req.Response raise @req.ReqError,
+  call : async () -> @requesto.Response raise @requesto.RequestoError,
 ) -> Ref[String?] {
   let outcome = Ref(None)
   group.spawn_bg(() => {
@@ -51,7 +51,7 @@ fn run_bg(
 async test "a GET is sent again after 503, after a backoff on the client's clock" {
   let clock = @simclock.VirtualClock()
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [Status(503, []), Status(503, []), Status(200, [])]),
     clock~,
     random=() => 0.5,
@@ -78,7 +78,7 @@ async test "Retry-After is honoured in seconds and as an HTTP date on the client
   // Sun, 06 Nov 1994 08:49:37 GMT
   let clock = @simclock.VirtualClock(start_ms=784_111_777_000L)
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [
       Status(429, [("Retry-After", "2")]),
       Status(503, [("Retry-After", "Sun, 06 Nov 1994 08:49:42 GMT")]),
@@ -104,7 +104,7 @@ async test "Retry-After is honoured in seconds and as an HTTP date on the client
 async test "a Retry-After beyond max_retry_after keeps the response" {
   let clock = @simclock.VirtualClock()
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [Status(503, [("Retry-After", "120")])]),
     clock~,
   )
@@ -116,7 +116,7 @@ async test "a Retry-After beyond max_retry_after keeps the response" {
     let outcome = run_bg(group, () => {
       client.get(
         "https://a.test/",
-        retry=@req.Retry::new(max_retries=1, max_retry_after=120_000),
+        retry=@requesto.Retry::new(max_retries=1, max_retry_after=120_000),
       )
     })
     clock.advance(119_999)
@@ -139,9 +139,11 @@ async test "after max_retries the last response or failure is kept" {
   ]
   for case in cases {
     let sent = []
-    let client = @req.Client::new(transport=scripted(sent, [case.0]), clock~, random=() => {
-      0.5
-    })
+    let client = @requesto.Client::new(
+      transport=scripted(sent, [case.0]),
+      clock~,
+      random=() => 0.5,
+    )
     @async.with_task_group(group => {
       let outcome = run_bg(group, () => client.get("https://a.test/"))
       clock.advance(500 + 1000 + 2000)
@@ -166,9 +168,11 @@ async test "other methods are sent again only when nothing reached the server" {
   ]
   for case in cases {
     let sent = []
-    let client = @req.Client::new(transport=scripted(sent, case.0), clock~, random=() => {
-      0.0
-    })
+    let client = @requesto.Client::new(
+      transport=scripted(sent, case.0),
+      clock~,
+      random=() => 0.0,
+    )
     @async.with_task_group(group => {
       let outcome = run_bg(group, () => {
         client.post("https://a.test/", json={ "a": 1 })
@@ -201,7 +205,7 @@ impl @http.BodyStream for Empty with fn close(_) {
 async test "a body that streams is sent once, and again only if never read" {
   let clock = @simclock.VirtualClock()
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [Status(503, [])]),
     clock~,
   )
@@ -209,7 +213,7 @@ async test "a body that streams is sent once, and again only if never read" {
   assert_eq(response.status, 503)
   assert_eq(sent.length(), 1)
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [Fail(Connect("refused")), Status(200, [])]),
     clock~,
     random=() => 0.0,
@@ -264,7 +268,7 @@ impl @http.Transport for Statuses with fn send_stream(self, _) {
 async test "a streamed response that is retried is closed first" {
   let clock = @simclock.VirtualClock()
   let transport = Statuses::{ statuses: [502, 200], bodies: [], }
-  let client = @req.Client::new(transport~, clock~, random=() => 0.0)
+  let client = @requesto.Client::new(transport~, clock~, random=() => 0.0)
   @async.with_task_group(group => {
     let seen = Ref([])
     group.spawn_bg(() => {
@@ -286,17 +290,17 @@ async test "a streamed response that is retried is closed first" {
 async test "retry is set per client and replaced per call" {
   let clock = @simclock.VirtualClock()
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [Status(503, [])]),
     clock~,
-    retry=@req.Retry::none(),
+    retry=@requesto.Retry::none(),
     random=() => 0.0,
   )
   assert_eq(client.get("https://a.test/").status, 503)
   assert_eq(sent.length(), 1)
   @async.with_task_group(group => {
     let outcome = run_bg(group, () => {
-      client.get("https://a.test/", retry=@req.Retry::new(max_retries=1))
+      client.get("https://a.test/", retry=@requesto.Retry::new(max_retries=1))
     })
     clock.advance(0)
     assert_eq(outcome.val, Some("status 503"))
@@ -309,11 +313,11 @@ async test "steps run once per call, and auth again for each retry" {
   let clock = @simclock.VirtualClock()
   let sent = []
   let calls = Ref(0)
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [Status(503, []), Status(200, [])]),
     clock~,
     auth=Bearer("t"),
-    steps=[@req.on_request(_ => calls.val += 1)],
+    steps=[@requesto.on_request(_ => calls.val += 1)],
     random=() => 0.0,
   )
   @async.with_task_group(group => {
@@ -332,7 +336,7 @@ async test "steps run once per call, and auth again for each retry" {
 async test "a POST answered with a redirect is not sent again when the next hop fails" {
   let clock = @simclock.VirtualClock()
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=scripted(sent, [
       Status(303, [("Location", "https://b.test/done")]),
       Fail(Connect("refused")),

@@ -26,7 +26,7 @@ fn select_body(
   json? : Json,
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
-) -> Body raise ReqError {
+) -> Body raise RequestoError {
   if body_length is Some(_) && body_stream is None {
     raise InvalidRequest(message="body_length is given without body_stream")
   }
@@ -55,7 +55,7 @@ fn select_body(
 fn Body::encode(
   self : Body,
   random? : () -> Double,
-) -> (String?, @http.Body) raise ReqError {
+) -> (String?, @http.Body) raise RequestoError {
   match self {
     Empty => (None, Bytes(b""))
     Content(bytes) => (None, Bytes(bytes))

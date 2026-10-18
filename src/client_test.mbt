@@ -1,12 +1,12 @@
 ///|
 /// A mock transport that records each request and answers 200 with `body`.
 fn recorder(
-  sent : Array[@req.Request],
+  sent : Array[@requesto.Request],
   status~ : Int32 = 200,
   headers~ : Array[(String, String)] = [],
   body~ : Bytes = b"",
-) -> @req.MockTransport {
-  @req.MockTransport::new(request => {
+) -> @requesto.MockTransport {
+  @requesto.MockTransport::new(request => {
     sent.push(request)
     { status, headers: @http.Headers::from_array(headers), body, }
   })
@@ -15,7 +15,7 @@ fn recorder(
 ///|
 async test "a call merges the client's defaults with its own arguments" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     base_url="https://api.test/v1",
     headers=[("Accept", "application/json"), ("X-Team", "a")],
     params=[("key", "k"), ("lang", "en")],
@@ -33,7 +33,7 @@ async test "a call merges the client's defaults with its own arguments" {
     "https://api.test/v1/users/42?fields=id&key=k&lang=ja&expand=teams",
   )
   assert_eq(request.headers.iter().collect(), [
-    ("user-agent", "gaato-req/0.1.0"),
+    ("user-agent", "requesto/0.1.0"),
     ("accept", "application/json"),
     ("x-team", "b"),
     ("x-extra", "1"),
@@ -44,7 +44,7 @@ async test "a call merges the client's defaults with its own arguments" {
 ///|
 async test "client headers replace the default User-Agent" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     headers=[("User-Agent", "mine/1")],
     transport=recorder(sent),
   )
@@ -55,7 +55,7 @@ async test "client headers replace the default User-Agent" {
 ///|
 async test "auth sets Authorization unless the call sets it" {
   let sent = []
-  let cases : Array[(@req.Auth, Array[(String, String)], String)] = [
+  let cases : Array[(@requesto.Auth, Array[(String, String)], String)] = [
     (Bearer("t"), [], "Bearer t"),
     (Basic(username="u", password="p"), [], "Basic dTpw"),
     (
@@ -67,7 +67,7 @@ async test "auth sets Authorization unless the call sets it" {
     (Bearer("t"), [("Authorization", "Token x")], "Token x"),
   ]
   for case in cases {
-    let client = @req.Client::new(auth=case.0, transport=recorder(sent))
+    let client = @requesto.Client::new(auth=case.0, transport=recorder(sent))
     let _ = client.get("https://a.test/", headers=case.1)
     assert_eq(sent.last().unwrap().headers.get_all("authorization"), [case.2])
   }
@@ -76,12 +76,12 @@ async test "auth sets Authorization unless the call sets it" {
 ///|
 async test "each body kind reaches the transport with its Content-Type" {
   let sent = []
-  let client = @req.Client::new(transport=recorder(sent))
+  let client = @requesto.Client::new(transport=recorder(sent))
   let _ = client.post("https://a.test/", json={ "a": [1, 2] })
   let _ = client.put("https://a.test/", data=[("q", "a b")])
   let _ = client.patch("https://a.test/", text="hé")
   let _ = client.request("DELETE", "https://a.test/", content=b"\x01")
-  let parts = [@req.Part::text("a", "1")]
+  let parts = [@requesto.Part::text("a", "1")]
   let _ = client.post("https://a.test/", files=parts)
   let _ = client.post("https://a.test/")
   let expected : Array[(String, String?, Bytes?)] = [
@@ -115,12 +115,14 @@ async test "each body kind reaches the transport with its Content-Type" {
 ///|
 async test "invalid calls raise the matching error and send nothing" {
   let sent = []
-  let client = @req.Client::new(transport=recorder(sent))
-  let based = @req.Client::new(
+  let client = @requesto.Client::new(transport=recorder(sent))
+  let based = @requesto.Client::new(
     base_url="https://a.test",
     transport=recorder(sent),
   )
-  let calls : Array[(async () -> @req.Response raise @req.ReqError, String)] = [
+  let calls : Array[
+    (async () -> @requesto.Response raise @requesto.RequestoError, String),
+  ] = [
     (
       () => client.post("https://a.test/", text="a", json=Json::null()),
       "InvalidRequest",
@@ -147,7 +149,7 @@ async test "invalid calls raise the matching error and send nothing" {
 ///|
 async test "verb shortcuts send their methods" {
   let sent = []
-  let client = @req.Client::new(transport=recorder(sent))
+  let client = @requesto.Client::new(transport=recorder(sent))
   let url = "https://a.test/"
   let _ = client.get(url)
   let _ = client.head(url)
@@ -165,7 +167,7 @@ async test "verb shortcuts send their methods" {
 ///|
 async test "a response carries the status, headers, body, URL and request" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=recorder(
       sent,
       status=404,
@@ -194,7 +196,7 @@ async test "a response carries the status, headers, body, URL and request" {
 async test "steps run in order around the transport" {
   let log = []
   let step = (name : String) => {
-    (request : @req.Request, next : @req.Next) => {
+    (request : @requesto.Request, next : @requesto.Next) => {
       log.push("\{name} in")
       request.headers.append("x-step", name)
       let response = next(request)
@@ -202,23 +204,23 @@ async test "steps run in order around the transport" {
       response
     }
   }
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     auth=Bearer("t"),
     steps=[
-      @req.on_request(request => {
+      @requesto.on_request(request => {
         log.push(
           "on_request \{request.headers.get("authorization").unwrap_or("-")}",
         )
       }),
       step("a"),
       step("b"),
-      @req.on_response(response => {
+      @requesto.on_response(response => {
         log.push(
           "on_response \{response.request.headers.get_all("x-step").join(",")}",
         )
       }),
     ],
-    transport=@req.MockTransport::new(request => {
+    transport=@requesto.MockTransport::new(request => {
       log.push(
         "transport \{request.headers.get("authorization").unwrap_or("-")}",
       )
@@ -235,8 +237,10 @@ async test "steps run in order around the transport" {
 ///|
 async test "a step can stop the call or send it twice" {
   let sent = []
-  let refuse : @req.Step = (_, _) => raise InvalidRequest(message="refused")
-  let client = @req.Client::new(steps=[refuse], transport=recorder(sent))
+  let refuse : @requesto.Step = (_, _) => {
+    raise InvalidRequest(message="refused")
+  }
+  let client = @requesto.Client::new(steps=[refuse], transport=recorder(sent))
   let outcome = try client.get("https://a.test/") catch {
     InvalidRequest(message~) => message
     error => "unexpected \{error}"
@@ -245,21 +249,23 @@ async test "a step can stop the call or send it twice" {
   }
   assert_eq(outcome, "refused")
   assert_eq(sent.length(), 0)
-  let twice : @req.Step = (request, next) => {
+  let twice : @requesto.Step = (request, next) => {
     let _ = next(request)
     next(request)
   }
-  let client = @req.Client::new(steps=[twice], transport=recorder(sent))
+  let client = @requesto.Client::new(steps=[twice], transport=recorder(sent))
   let _ = client.get("https://a.test/")
   assert_eq(sent.length(), 2)
 }
 
 ///|
 async test "hooks can raise, as raise_for_status does" {
-  let client = @req.Client::new(
-    steps=[@req.on_response(response => ignore(response.raise_for_status()))],
+  let client = @requesto.Client::new(
+    steps=[
+      @requesto.on_response(response => ignore(response.raise_for_status())),
+    ],
     transport=recorder([], status=500),
-    retry=@req.Retry::none(),
+    retry=@requesto.Retry::none(),
   )
   let outcome = try client.get("https://a.test/") catch {
     Status(response~, ..) => response.status
@@ -283,9 +289,9 @@ async test "transport failures surface as error variants carrying the request" {
     ),
   ]
   for case in cases {
-    let client = @req.Client::new(
-      transport=@req.MockTransport::new(_ => raise case.0),
-      retry=@req.Retry::none(),
+    let client = @requesto.Client::new(
+      transport=@requesto.MockTransport::new(_ => raise case.0),
+      retry=@requesto.Retry::none(),
     )
     let outcome = try client.get("https://a.test/x") catch {
       Network(request~, phase~, message~) if request.url == "https://a.test/x" =>
@@ -306,18 +312,21 @@ async test "transport failures surface as error variants carrying the request" {
 
 ///|
 async test "credentials in a URL become Basic auth and leave the URL" {
-  let sent : Array[@req.Request] = []
-  let transport = @req.MockTransport::new(request => {
+  let sent : Array[@requesto.Request] = []
+  let transport = @requesto.MockTransport::new(request => {
     sent.push(request)
     { status: 200, headers: @http.Headers::new(), body: b"", }
   })
-  let client = @req.Client::new(transport~, auth=Bearer("client-token"))
+  let client = @requesto.Client::new(transport~, auth=Bearer("client-token"))
   ignore(client.get("https://us%40er:p%3Ass@a.test/x"))
   ignore(
     client.get("https://u:p@a.test/y", headers=[("Authorization", "Token t")]),
   )
   ignore(client.get("https://a.test/z"))
-  let based = @req.Client::new(transport~, base_url="https://u:p@a.test/v1")
+  let based = @requesto.Client::new(
+    transport~,
+    base_url="https://u:p@a.test/v1",
+  )
   ignore(based.get("items"))
   assert_eq(sent.map(r => r.url), [
     "https://a.test/x", "https://a.test/y", "https://a.test/z", "https://a.test/v1/items",
@@ -332,9 +341,11 @@ async test "credentials in a URL become Basic auth and leave the URL" {
 
 ///|
 async test "error messages never show credentials from a URL" {
-  let client = @req.Client::new(
-    transport=@req.MockTransport::new(_ => raise @http.HttpError::Connect("no")),
-    retry=@req.Retry::none(),
+  let client = @requesto.Client::new(
+    transport=@requesto.MockTransport::new(_ => {
+      raise @http.HttpError::Connect("no")
+    }),
+    retry=@requesto.Retry::none(),
   )
   let messages = []
   for

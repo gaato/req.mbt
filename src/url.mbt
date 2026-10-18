@@ -4,8 +4,8 @@
 ///
 /// ```mbt check
 /// test {
-///   let page = @req.Url::parse("https://api.example.com/v1/items?page=1")
-///   let next = page.resolve(@req.Url::parse("items?page=2"))
+///   let page = @requesto.Url::parse("https://api.example.com/v1/items?page=1")
+///   let next = page.resolve(@requesto.Url::parse("items?page=2"))
 ///   assert_eq(next.to_string(), "https://api.example.com/v1/items?page=2")
 ///   assert_eq(next.query_params(), [("page", "2")])
 ///   assert_true(page.same_origin(next))
@@ -90,7 +90,7 @@ fn merge_params(
 /// host, canonical IPv6, no default port, no dot segments, and what has to
 /// be percent-encoded encoded (existing escapes kept). A space or control
 /// character is refused rather than encoded or dropped.
-fn parse_url(url : String) -> Url raise ReqError {
+fn parse_url(url : String) -> Url raise RequestoError {
   for c in url {
     if c <= ' ' || c == '\u{7f}' {
       raise InvalidURL(url~, message="contains a space or control character")

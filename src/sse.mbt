@@ -39,7 +39,7 @@ fn Response::parse_events(
   self : Response,
   parser : @sse.SseParser,
   bytes : Bytes,
-) -> Array[SseEvent] raise ReqError {
+) -> Array[SseEvent] raise RequestoError {
   parser.feed(bytes) catch {
     error => {
       self.close()
@@ -61,8 +61,8 @@ fn Response::parse_events(
 ///
 /// ```mbt check
 /// async test {
-///   let client = @req.Client::new(
-///     transport=@req.MockTransport::new(_ => {
+///   let client = @requesto.Client::new(
+///     transport=@requesto.MockTransport::new(_ => {
 ///       status: 200,
 ///       headers: @http.Headers::from_array([("Content-Type", "text/event-stream")]),
 ///       body: b"data: one\n\nevent: done\ndata: two\n\n",
@@ -120,8 +120,8 @@ pub async fn Response::each_event(
 ///
 /// ```mbt check
 /// async test {
-///   let client = @req.Client::new(
-///     transport=@req.MockTransport::new(_ => {
+///   let client = @requesto.Client::new(
+///     transport=@requesto.MockTransport::new(_ => {
 ///       status: 200,
 ///       headers: @http.Headers::from_array([("Content-Type", "text/event-stream")]),
 ///       body: b"id: 7\ndata: hello\n\n",

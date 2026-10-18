@@ -24,12 +24,12 @@ let default_max_cookies : Int32 = 3000
 /// ```mbt check
 /// test {
 ///   let clock = @simclock.VirtualClock()
-///   let jar = @req.CookieJar::new(clock)
-///   let first = @req.Client::new(clock~, cookies=Jar(jar))
-///   let second = @req.Client::new(clock~, cookies=Jar(jar))
+///   let jar = @requesto.CookieJar::new(clock)
+///   let first = @requesto.Client::new(clock~, cookies=Jar(jar))
+///   let second = @requesto.Client::new(clock~, cookies=Jar(jar))
 ///   let shared = second.cookies().unwrap()
 ///   assert_true(physical_equal(shared, jar))
-///   let none = @req.Client::new(cookies=Off)
+///   let none = @requesto.Client::new(cookies=Off)
 ///   assert_true(none.cookies() is None)
 ///   [first, second, none].each(client => client.close())
 /// }

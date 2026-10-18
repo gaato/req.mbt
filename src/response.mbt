@@ -65,7 +65,7 @@ priv struct ResponseBody {
 /// ```mbt check
 /// test {
 ///   let request = @http.Request::get("https://example.com/")
-///   let response = @req.Response::new(200, request, content=b"cached")
+///   let response = @requesto.Response::new(200, request, content=b"cached")
 ///   assert_eq(response.text(), "cached")
 ///   assert_eq(response.url, "https://example.com/")
 /// }
@@ -104,7 +104,7 @@ fn buffered_body(content : Bytes) -> ResponseBody {
 
 ///|
 /// The whole body. A streamed response's body has to be read first.
-pub fn Response::content(self : Response) -> Bytes raise ReqError {
+pub fn Response::content(self : Response) -> Bytes raise RequestoError {
   match self.body.state {
     Buffered(content, ..) => content
     Open(_, started=false) => raise ResponseNotRead(request=self.request)
@@ -115,13 +115,13 @@ pub fn Response::content(self : Response) -> Bytes raise ReqError {
 
 ///|
 /// The body decoded as UTF-8; malformed bytes become U+FFFD.
-pub fn Response::text(self : Response) -> String raise ReqError {
+pub fn Response::text(self : Response) -> String raise RequestoError {
   @utf8.decode_lossy(self.content())
 }
 
 ///|
 /// The body parsed as JSON.
-pub fn Response::json(self : Response) -> Json raise ReqError {
+pub fn Response::json(self : Response) -> Json raise RequestoError {
   let content = self.content()
   let text = @utf8.decode(content) catch {
     _ => raise Decoding(message="the body is not valid UTF-8")
@@ -136,7 +136,7 @@ pub fn Response::json(self : Response) -> Json raise ReqError {
 /// by its expected type: `let user : User = response.json_as()`.
 pub fn[T : @json.FromJson] Response::json_as(
   self : Response,
-) -> T raise ReqError {
+) -> T raise RequestoError {
   let json = self.json()
   @json.from_json(json) catch {
     error => raise Decoding(message=error.to_string())
@@ -148,7 +148,7 @@ pub fn[T : @json.FromJson] Response::json_as(
 /// `max_body_bytes`, and returns it; `content`, `text` and `json` work
 /// afterwards. A body already read is returned as it is. A body larger than
 /// the bound is closed and raises `Protocol`.
-pub async fn Response::read(self : Response) -> Bytes raise ReqError {
+pub async fn Response::read(self : Response) -> Bytes raise RequestoError {
   match self.body.state {
     Buffered(content, ..) => content
     Open(stream, started=false) => {
@@ -177,7 +177,7 @@ pub async fn Response::read(self : Response) -> Bytes raise ReqError {
 /// The next chunk of the body, or `None` at its end. A body in memory comes
 /// as one chunk. Each read from the connection is bounded by the call's
 /// `timeout`. After `close`, raises `StreamConsumed`.
-pub async fn Response::read_some(self : Response) -> Bytes? raise ReqError {
+pub async fn Response::read_some(self : Response) -> Bytes? raise RequestoError {
   match self.body.state {
     Buffered(content, delivered~) => {
       guard !delivered && content.length() > 0 else { return None }
@@ -260,7 +260,7 @@ pub fn Response::close(self : Response) -> Unit {
 async fn Response::next_chunk(
   self : Response,
   stream : &@http.BodyStream,
-) -> Bytes? raise ReqError {
+) -> Bytes? raise RequestoError {
   let body = self.body
   let chunk = @adapter.with_timeout_opt(body.clock, body.timeout, () => {
     stream.read_some()
@@ -323,7 +323,9 @@ pub fn Response::is_error(self : Response) -> Bool {
 ///|
 /// The response itself when its status is in 200 through 299, otherwise a
 /// `Status` error carrying it, informational and redirect statuses included.
-pub fn Response::raise_for_status(self : Response) -> Response raise ReqError {
+pub fn Response::raise_for_status(
+  self : Response,
+) -> Response raise RequestoError {
   guard self.is_success() else {
     raise Status(request=self.request, response=self)
   }

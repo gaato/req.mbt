@@ -25,7 +25,7 @@ test "transport failures map to the error variants" {
     ),
     (@http.HttpError::Protocol("bad head"), "protocol bad head"),
     (@http.HttpError::Proxy(status=407, message="auth"), "proxy 407 auth"),
-    (Odd, "protocol gaato/req.Odd.Odd"),
+    (Odd, "protocol gaato/requesto.Odd.Odd"),
   ]
   for case in cases {
     let mapped = match map_transport_error(case.0, request) {
@@ -47,7 +47,7 @@ test "transport failures map to the error variants" {
 test "errors print one line without headers and fall into groups" {
   let request = sample_request()
   // (error, message, is_timeout, is_transport_error, is_unsent)
-  let cases : Array[(ReqError, String, Bool, Bool, Bool)] = [
+  let cases : Array[(RequestoError, String, Bool, Bool, Bool)] = [
     (
       Timeout(request~, phase=Unknown, timeout=30000),
       "GET https://a.test/x: timed out after 30000 ms",
@@ -193,7 +193,7 @@ test "errors print one line without headers and fall into groups" {
 ///|
 test "error debug output names the request and the response status" {
   let request = sample_request()
-  let cases : Array[(ReqError, String)] = [
+  let cases : Array[(RequestoError, String)] = [
     (Timeout(request~, phase=Head, timeout=5), "Timeout"),
     (Network(request~, phase=Dial, message="m"), "Network"),
     (Protocol(request~, message="m"), "Protocol"),

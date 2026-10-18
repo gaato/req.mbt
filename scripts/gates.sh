@@ -22,7 +22,7 @@ if [ "$first_heading" != "## [Unreleased]" ]; then
 fi
 # The default User-Agent names the version in moon.mod.
 version="$(sed -nE 's/^version = "(.*)"$/\1/p' moon.mod)"
-grep -Fq "let user_agent : String = \"gaato-req/$version\"" src/client.mbt || {
+grep -Fq "let user_agent : String = \"requesto/$version\"" src/client.mbt || {
   echo "src/client.mbt: user_agent does not name version $version from moon.mod" >&2
   exit 1
 }

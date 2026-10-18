@@ -8,7 +8,7 @@ pub async fn Client::get(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   self.request(
     "GET",
     url,
@@ -30,7 +30,7 @@ pub async fn Client::head(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   self.request(
     "HEAD",
     url,
@@ -52,7 +52,7 @@ pub async fn Client::options(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   self.request(
     "OPTIONS",
     url,
@@ -74,7 +74,7 @@ pub async fn Client::delete(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   self.request(
     "DELETE",
     url,
@@ -103,7 +103,7 @@ pub async fn Client::post(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   self.request(
     "POST",
     url,
@@ -139,7 +139,7 @@ pub async fn Client::put(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   self.request(
     "PUT",
     url,
@@ -175,7 +175,7 @@ pub async fn Client::patch(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   self.request(
     "PATCH",
     url,

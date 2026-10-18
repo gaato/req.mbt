@@ -1,7 +1,7 @@
 ///|
 /// A transport whose responses wait for `release`.
-fn held(release : @aqueue.Queue[Int32]) -> @req.MockTransport {
-  @req.MockTransport::new(_ => {
+fn held(release : @aqueue.Queue[Int32]) -> @requesto.MockTransport {
+  @requesto.MockTransport::new(_ => {
     let status = release.get() catch { _ => 0 }
     { status, headers: @http.Headers::new(), body: b"", }
   })
@@ -12,7 +12,7 @@ fn held(release : @aqueue.Queue[Int32]) -> @req.MockTransport {
 /// `None` while it runs, then the status or the error's variant.
 fn outcome_of(
   group : @async.TaskGroup[Unit],
-  call : async () -> @req.Response raise @req.ReqError,
+  call : async () -> @requesto.Response raise @requesto.RequestoError,
 ) -> Ref[String?] {
   let outcome = Ref(None)
   group.spawn_bg(() => {
@@ -32,10 +32,10 @@ fn outcome_of(
 async test "an exchange times out after 30 s on the client's clock by default" {
   let clock = @simclock.VirtualClock()
   let release : @aqueue.Queue[Int32] = Queue(kind=Unbounded)
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=held(release),
     clock~,
-    retry=@req.Retry::none(),
+    retry=@requesto.Retry::none(),
   )
   @async.with_task_group(group => {
     let outcome = outcome_of(group, () => client.get("https://a.test/"))
@@ -51,11 +51,11 @@ async test "an exchange times out after 30 s on the client's clock by default" {
 async test "timeout is set per client and replaced per call" {
   let clock = @simclock.VirtualClock()
   let release : @aqueue.Queue[Int32] = Queue(kind=Unbounded)
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=held(release),
     clock~,
     timeout=100,
-    retry=@req.Retry::none(),
+    retry=@requesto.Retry::none(),
   )
   @async.with_task_group(group => {
     let by_client = outcome_of(group, () => client.get("https://a.test/"))
@@ -74,10 +74,10 @@ async test "timeout is set per client and replaced per call" {
 ///|
 async test "elapsed is the transport's time on the client's clock" {
   let clock = @simclock.VirtualClock()
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     clock~,
-    steps=[@req.on_request(_ => clock.sleep(1000))],
-    transport=@req.MockTransport::new(_ => {
+    steps=[@requesto.on_request(_ => clock.sleep(1000))],
+    transport=@requesto.MockTransport::new(_ => {
       clock.sleep(250)
       { status: 200, headers: @http.Headers::new(), body: b"", }
     }),

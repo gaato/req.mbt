@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test-coverage report for gaato/req.
+# Test-coverage report for gaato/requesto.
 #
 # Runs the native test suite with coverage instrumentation, writes a Coveralls
 # JSON report, prints per-file and total tables, and checks every remaining

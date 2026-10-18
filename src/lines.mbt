@@ -75,8 +75,8 @@ fn LineSplitter::take(self : LineSplitter) -> String {
 ///
 /// ```mbt check
 /// async test {
-///   let client = @req.Client::new(
-///     transport=@req.MockTransport::new(_ => {
+///   let client = @requesto.Client::new(
+///     transport=@requesto.MockTransport::new(_ => {
 ///       status: 200,
 ///       headers: @http.Headers::new(),
 ///       body: b"{\"n\":1}\n{\"n\":2}\n",

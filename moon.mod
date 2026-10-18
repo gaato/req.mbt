@@ -2,7 +2,7 @@
 // gaato/http-async so `Client::new()` needs no setup, and on gaato/http and
 // gaato/sdk-runtime for the vocabulary and the multipart encoder.
 
-name = "gaato/req"
+name = "gaato/requesto"
 
 version = "0.1.0"
 
@@ -10,7 +10,7 @@ license = "Apache-2.0"
 
 readme = "README.md"
 
-repository = "https://github.com/gaato/req.mbt"
+repository = "https://github.com/gaato/requesto.mbt"
 
 keywords = [ "http", "client", "requests", "async" ]
 

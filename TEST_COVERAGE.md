@@ -1,6 +1,6 @@
 # Test coverage ledger
 
-Line coverage of `gaato/req`, measured on native with `moon test
+Line coverage of `gaato/requesto`, measured on native with `moon test
 --enable-coverage` and reported in Coveralls-JSON mode. The rule is a closed
 ledger:
 

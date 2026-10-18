@@ -21,8 +21,8 @@ fn answer(nonce~ : String, nc~ : String, response~ : String) -> String {
 fn server(
   seen : Array[String?],
   respond : (Int32, String?) -> (Int32, String?),
-) -> @req.MockTransport {
-  @req.MockTransport::new(request => {
+) -> @requesto.MockTransport {
+  @requesto.MockTransport::new(request => {
     let authorization = request.headers.get("authorization")
     seen.push(authorization)
     if request.body is Stream(body) {
@@ -38,12 +38,12 @@ fn server(
 }
 
 ///|
-fn mufasa(transport : @req.MockTransport) -> @req.Client {
-  @req.Client::new(
+fn mufasa(transport : @requesto.MockTransport) -> @requesto.Client {
+  @requesto.Client::new(
     transport~,
     auth=Digest(username="Mufasa", password="Circle of Life"),
     random=() => 0.5,
-    retry=@req.Retry::none(),
+    retry=@requesto.Retry::none(),
   )
 }
 
@@ -195,7 +195,7 @@ async test "Digest nonces are kept per origin" {
 async test "a retry passes through Digest again with the next nc" {
   let clock = @simclock.VirtualClock()
   let seen = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=server(seen, (n, authorization) => {
       match (n, authorization) {
         (_, None) => (401, Some(challenge(nonce=rfc_nonce)))
@@ -221,11 +221,11 @@ async test "a retry passes through Digest again with the next nc" {
 ///|
 async test "Digest answers a redirected hop with that hop's URI" {
   let seen : Array[(String, String?)] = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     auth=Digest(username="Mufasa", password="Circle of Life"),
     random=() => 0.5,
-    retry=@req.Retry::none(),
-    transport=@req.MockTransport::new(request => {
+    retry=@requesto.Retry::none(),
+    transport=@requesto.MockTransport::new(request => {
       let authorization = request.headers.get("authorization")
       seen.push((request.url, authorization))
       let (status, headers) = match (request.url, authorization) {
@@ -256,10 +256,10 @@ async test "Digest answers a redirected hop with that hop's URI" {
 ///|
 async test "Digest never answers a challenge from another origin" {
   let seen : Array[(String, String?)] = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     auth=Digest(username="Mufasa", password="Circle of Life"),
-    retry=@req.Retry::none(),
-    transport=@req.MockTransport::new(request => {
+    retry=@requesto.Retry::none(),
+    transport=@requesto.MockTransport::new(request => {
       seen.push((request.url, request.headers.get("authorization")))
       let (status, headers) = if request.url == "https://a.test/" {
         (302, [("Location", "https://b.test/")])

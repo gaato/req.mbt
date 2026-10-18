@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `gaato/req` are documented here. The format follows
+All notable changes to `gaato/requesto` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). While the version is
 0.x, a minor release (0.x → 0.y) may contain breaking changes; a patch release
 never does. Every breaking change is listed with a migration note.
@@ -45,7 +45,7 @@ never does. Every breaking change is listed with a migration note.
   sent as Basic `Authorization`, in place of the client's `auth`, unless
   the call sets `Authorization`, as requests and httpx do; error messages
   and debug output show them as `<redacted>`.
-- `ReqError`, one error for every failure, naming the phase a transport
+- `RequestoError`, one error for every failure, naming the phase a transport
   failure happened in, with `is_timeout`, `is_transport_error` and
   `is_unsent`.
 - Retries, on by default: `Retry::new` (3 retries of GET, HEAD, OPTIONS,

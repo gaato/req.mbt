@@ -16,7 +16,7 @@ let default_retry_methods : Array[String] = [
 /// A call is sent again, up to `max_retries` times, when its method is one
 /// of `methods` and the response's status is one of `statuses` or sending
 /// failed with `Timeout` or `Network`; and whatever its method when nothing
-/// reached the server (`ReqError::is_unsent`; a proxy refusal only with one
+/// reached the server (`RequestoError::is_unsent`; a proxy refusal only with one
 /// of `statuses`). A body that streams is never sent twice. The wait is a
 /// `Retry-After` the response gives, in seconds or as an HTTP date on the
 /// client's clock, unless it asks for more than `max_retry_after`, in which
@@ -25,9 +25,9 @@ let default_retry_methods : Array[String] = [
 ///
 /// ```mbt check
 /// test {
-///   let client = @req.Client::new(retry=@req.Retry::new(max_retries=5))
+///   let client = @requesto.Client::new(retry=@requesto.Retry::new(max_retries=5))
 ///   client.close()
-///   let client = @req.Client::new(retry=@req.Retry::none())
+///   let client = @requesto.Client::new(retry=@requesto.Retry::none())
 ///   client.close()
 /// }
 /// ```
@@ -84,7 +84,7 @@ pub fn Retry::none() -> Retry {
 fn Retry::delay_ms(
   self : Retry,
   request : Request,
-  outcome : Result[Response, ReqError],
+  outcome : Result[Response, RequestoError],
   retries : Int32,
   now_ms : Int64,
   random : Double,
@@ -113,7 +113,7 @@ fn Retry::delay_ms(
 fn Retry::retryable(
   self : Retry,
   request : Request,
-  outcome : Result[Response, ReqError],
+  outcome : Result[Response, RequestoError],
 ) -> Bool {
   let idempotent = self.methods.contains(request.http_method.to_upper())
   match outcome {
@@ -158,7 +158,7 @@ fn retry_step(
   (request, next) => {
     for retries = 0 {
       let sent = { ..request, headers: copy_headers(request.headers), }
-      let outcome : Result[Response, ReqError] = try next(sent) catch {
+      let outcome : Result[Response, RequestoError] = try next(sent) catch {
         error => Err(error)
       } noraise {
         response => Ok(response)

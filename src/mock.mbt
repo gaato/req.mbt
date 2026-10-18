@@ -5,8 +5,8 @@
 ///
 /// ```mbt check
 /// async test {
-///   let client = @req.Client::new(
-///     transport=@req.MockTransport::new(request => {
+///   let client = @requesto.Client::new(
+///     transport=@requesto.MockTransport::new(request => {
 ///       status: 200,
 ///       headers: @http.Headers::new(),
 ///       body: b"hi \{request.url}",

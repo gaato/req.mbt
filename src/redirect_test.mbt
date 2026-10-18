@@ -4,10 +4,10 @@
 /// URL, and 200 for any other URL. It takes a stream body, as a transport
 /// sending it does.
 fn routes(
-  sent : Array[@req.Request],
+  sent : Array[@requesto.Request],
   table : Array[(String, Int32, Array[(String, String)])],
-) -> @req.MockTransport {
-  @req.MockTransport::new(request => {
+) -> @requesto.MockTransport {
+  @requesto.MockTransport::new(request => {
     sent.push(request)
     if request.body is Stream(body) {
       body.take().close()
@@ -29,7 +29,10 @@ fn routes(
 ///|
 /// A transport where `/k` redirects to `/k+1` until `/length`, which
 /// answers 200.
-fn chain_of(sent : Array[@req.Request], length : Int32) -> @req.MockTransport {
+fn chain_of(
+  sent : Array[@requesto.Request],
+  length : Int32,
+) -> @requesto.MockTransport {
   let table = []
   for k in 0..<length {
     table.push(("https://a.test/\{k}", 302, [("Location", "/\{k + 1}")]))
@@ -41,7 +44,7 @@ fn chain_of(sent : Array[@req.Request], length : Int32) -> @req.MockTransport {
 /// The status of a call's response, or the variant it raised with the URL
 /// of the request it names.
 async fn redirect_outcome(
-  call : async () -> @req.Response raise @req.ReqError,
+  call : async () -> @requesto.Response raise @requesto.RequestoError,
 ) -> String {
   try call() catch {
     TooManyRedirects(request~, max~) =>
@@ -58,7 +61,7 @@ async fn redirect_outcome(
 ///|
 async test "a redirect chain is followed; history holds the redirects, oldest first" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=routes(sent, [
       ("https://a.test/1", 302, [("Location", "/2?x=1#frag")]),
       ("https://a.test/2?x=1", 301, [("Location", "https://b.test/3")]),
@@ -83,12 +86,14 @@ async test "a redirect chain is followed; history holds the redirects, oldest fi
 async test "follow_redirects is set per client and replaced per call" {
   let sent = []
   let table = [("https://a.test/old", 308, [("Location", "/new")])]
-  let off = @req.Client::new(
+  let off = @requesto.Client::new(
     follow_redirects=false,
     transport=routes(sent, table),
   )
-  let on = @req.Client::new(transport=routes(sent, table))
-  let cases : Array[(async () -> @req.Response raise @req.ReqError, String)] = [
+  let on = @requesto.Client::new(transport=routes(sent, table))
+  let cases : Array[
+    (async () -> @requesto.Response raise @requesto.RequestoError, String),
+  ] = [
     (() => off.get("https://a.test/old"), "status 308 at https://a.test/old"),
     (
       () => off.get("https://a.test/old", follow_redirects=true),
@@ -112,7 +117,7 @@ async test "follow_redirects is set per client and replaced per call" {
 ///|
 async test "303 turns POST into GET without the body; 307 keeps both" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=routes(sent, [
       ("https://a.test/form", 303, [("Location", "/done")]),
       ("https://a.test/keep", 307, [("Location", "/kept")]),
@@ -137,7 +142,7 @@ async test "303 turns POST into GET without the body; 307 keeps both" {
 ///|
 async test "credentials are dropped when the origin changes, auth back on its origin" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     auth=Bearer("t"),
     headers=[("Cookie", "mine=1"), ("Proxy-Authorization", "Basic eA==")],
     transport=routes(sent, [
@@ -147,7 +152,7 @@ async test "credentials are dropped when the origin changes, auth back on its or
     ]),
   )
   let _ = client.get("https://a.test/1")
-  let credentials = (request : @req.Request) => {
+  let credentials = (request : @requesto.Request) => {
     [
       request.headers.get("authorization"),
       request.headers.get("cookie"),
@@ -165,7 +170,7 @@ async test "credentials are dropped when the origin changes, auth back on its or
 ///|
 async test "refused redirects raise InvalidRedirect and close the response" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=routes(sent, [
       ("https://a.test/down", 302, [("Location", "http://a.test/plain")]),
       ("https://a.test/ftp", 301, [("Location", "ftp://a.test/file")]),
@@ -196,7 +201,7 @@ async test "more than max_redirects raises TooManyRedirects; 10 by default" {
   ]
   for case in cases {
     let sent = []
-    let client = @req.Client::new(
+    let client = @requesto.Client::new(
       max_redirects?=case.0,
       transport=chain_of(sent, case.1),
     )
@@ -206,7 +211,7 @@ async test "more than max_redirects raises TooManyRedirects; 10 by default" {
     assert_eq(sent.length(), followed + 1, msg=case.2)
   }
   let sent = []
-  let client = @req.Client::new(transport=chain_of(sent, 10))
+  let client = @requesto.Client::new(transport=chain_of(sent, 10))
   assert_eq(client.get("https://a.test/0").history.length(), 10)
 }
 
@@ -231,7 +236,7 @@ impl @http.BodyStream for Upload with fn close(self) {
 ///|
 async test "a stream body is not sent again on 307, and dropped on 303" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=routes(sent, [
       ("https://a.test/307", 307, [("Location", "/next")]),
       ("https://a.test/303", 303, [("Location", "/next")]),
@@ -252,9 +257,9 @@ async test "a stream body is not sent again on 307, and dropped on 303" {
 
 ///|
 async test "a failure on a later hop is raised as it is" {
-  let client = @req.Client::new(
-    retry=@req.Retry::none(),
-    transport=@req.MockTransport::new(request => {
+  let client = @requesto.Client::new(
+    retry=@requesto.Retry::none(),
+    transport=@requesto.MockTransport::new(request => {
       guard request.url == "https://a.test/1" else {
         raise @http.HttpError::Connect("refused")
       }
@@ -275,10 +280,10 @@ async test "a failure on a later hop is raised as it is" {
 async test "the client's steps see the first request and the final response" {
   let sent = []
   let seen = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     steps=[
-      @req.on_request(request => seen.push(request.url)),
-      @req.on_response(response => seen.push(response.url)),
+      @requesto.on_request(request => seen.push(request.url)),
+      @requesto.on_response(response => seen.push(response.url)),
     ],
     transport=routes(sent, [("https://a.test/1", 302, [("Location", "/2")])]),
   )
@@ -348,7 +353,7 @@ async test "a streamed call closes each redirect response before the next hop" {
     bodies: [],
     open_at_send: [],
   }
-  let client = @req.Client::new(transport~)
+  let client = @requesto.Client::new(transport~)
   let (text, history) = client.stream("GET", "https://a.test/1", response => {
     let history = response.history.map(hop => {
       let body = try hop.content() catch {
@@ -380,13 +385,13 @@ async test "a streamed call closes the redirect it refuses" {
     bodies: [],
     open_at_send: [],
   }
-  let client = @req.Client::new(transport~, max_redirects=5)
+  let client = @requesto.Client::new(transport~, max_redirects=5)
   let outcome = try {
     client.stream("GET", "https://a.test/1", response => response.status)
     |> ignore
     "returned"
   } catch {
-    @req.ReqError::InvalidRedirect(location~, ..) => location
+    @requesto.RequestoError::InvalidRedirect(location~, ..) => location
     error => "unexpected \{error}"
   }
   assert_eq(outcome, "http://a.test/3")

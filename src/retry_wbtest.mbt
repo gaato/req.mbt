@@ -27,17 +27,17 @@ test "retryable: idempotent methods on transient statuses and failures, any meth
   let retry = Retry::new()
   let ok = (http_method : String, status : Int32) => {
     let request = @http.Request::new(http_method, "https://a.test/")
-    let outcome : Result[Response, ReqError] = Ok(
+    let outcome : Result[Response, RequestoError] = Ok(
       Response::new(status, request),
     )
     (request, outcome)
   }
-  let err = (http_method : String, error : (Request) -> ReqError) => {
+  let err = (http_method : String, error : (Request) -> RequestoError) => {
     let request = @http.Request::new(http_method, "https://a.test/")
-    let outcome : Result[Response, ReqError] = Err(error(request))
+    let outcome : Result[Response, RequestoError] = Err(error(request))
     (request, outcome)
   }
-  let cases : Array[(String, (Request, Result[Response, ReqError]), Bool)] = [
+  let cases : Array[(String, (Request, Result[Response, RequestoError]), Bool)] = [
     ("GET 503", ok("GET", 503), true),
     ("get 503", ok("get", 503), true),
     ("HEAD 408", ok("HEAD", 408), true),
@@ -129,12 +129,12 @@ test "delay_ms: the count, the body, Retry-After and its cap, else the backoff" 
   let now = 784_111_777_000L // Sun, 06 Nov 1994 08:49:37 GMT
   let get = @http.Request::get("https://a.test/")
   let response = (headers : Array[(String, String)]) => {
-    let outcome : Result[Response, ReqError] = Ok(
+    let outcome : Result[Response, RequestoError] = Ok(
       Response::new(503, get, headers=@http.Headers::from_array(headers)),
     )
     outcome
   }
-  let cases : Array[(String, Result[Response, ReqError], Int32, Int32?)] = [
+  let cases : Array[(String, Result[Response, RequestoError], Int32, Int32?)] = [
     ("backoff, first retry", response([]), 0, Some(500)),
     ("backoff, third retry", response([]), 2, Some(2000)),
     ("no fourth retry", response([]), 3, None),
@@ -181,7 +181,7 @@ test "delay_ms: the count, the body, Retry-After and its cap, else the backoff" 
   let stream = @http.StreamBody::new(Idle::{ })
   let put = @http.Request::put("https://a.test/")
   let put = { ..put, body: Stream(stream), }
-  let failed : Result[Response, ReqError] = Err(
+  let failed : Result[Response, RequestoError] = Err(
     Network(request=put, phase=Dial, message=""),
   )
   assert_eq(retry.delay_ms(put, failed, 0, now, 0.5), Some(500), msg="untaken")

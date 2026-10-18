@@ -1,6 +1,6 @@
 ///|
 /// The `User-Agent` a client sends unless told otherwise.
-let user_agent : String = "gaato-req/0.1.0"
+let user_agent : String = "requesto/0.1.0"
 
 ///|
 /// How long one exchange may take, in milliseconds, unless told otherwise.
@@ -44,7 +44,7 @@ pub struct Client {
 ///
 /// - `base_url`: prefixed to relative URLs; a call's URL is appended to it
 ///   with one `/`, so `"/users"` and `"users"` both land under its path.
-/// - `headers`: sent with every call, after `User-Agent: gaato-req/<version>`,
+/// - `headers`: sent with every call, after `User-Agent: requesto/<version>`,
 ///   which a `User-Agent` here replaces.
 /// - `params`: query parameters added to every call.
 /// - `auth`: sets `Authorization` on calls that do not set it themselves.
@@ -93,7 +93,7 @@ pub struct Client {
 ///
 /// ```mbt check
 /// test {
-///   let client = @req.Client::new(
+///   let client = @requesto.Client::new(
 ///     base_url="https://api.example.com/v1",
 ///     headers=[("Accept", "application/json")],
 ///     auth=Bearer("token"),
@@ -181,7 +181,7 @@ pub fn Client::close(self : Client) -> Unit {
 ///
 /// ```mbt check
 /// test {
-///   let client = @req.Client::new()
+///   let client = @requesto.Client::new()
 ///   assert_eq(client.cookies().map(jar => jar.length()), Some(0))
 ///   client.close()
 /// }
@@ -228,7 +228,7 @@ pub async fn Client::request(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let request = self.build(
     http_method,
     url,
@@ -263,8 +263,8 @@ pub async fn Client::request(
 ///
 /// ```mbt check
 /// async test {
-///   let client = @req.Client::new(
-///     transport=@req.MockTransport::new(_ => {
+///   let client = @requesto.Client::new(
+///     transport=@requesto.MockTransport::new(_ => {
 ///       status: 200,
 ///       headers: @http.Headers::new(),
 ///       body: b"line one",
@@ -365,7 +365,7 @@ fn Client::build(
   params : Array[(String, String)],
   headers : Array[(String, String)],
   body : Body,
-) -> Request raise ReqError {
+) -> Request raise RequestoError {
   check_method(http_method)
   let parsed = parse_url(join_url(self.base_url, url))
   let url = without_userinfo(
@@ -389,7 +389,7 @@ fn Client::build(
 
 ///|
 /// Raises unless `http_method` is an HTTP token.
-fn check_method(http_method : String) -> Unit raise ReqError {
+fn check_method(http_method : String) -> Unit raise RequestoError {
   if http_method.is_empty() || !http_method.iter().all(is_tchar) {
     raise InvalidRequest(message="invalid method: \{http_method}")
   }
@@ -404,7 +404,7 @@ async fn Client::exchange(
   request : Request,
   timeout : Int32,
   stream~ : Bool,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let started = self.clock.now_unix_ms()
   let received = @adapter.with_timeout_opt(self.clock, timeout, () => {
     if stream {

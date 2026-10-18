@@ -4,7 +4,7 @@
 ///
 /// ```mbt check
 /// async test {
-///   let response = try @req.request("GET", "ftp://example.com/") catch {
+///   let response = try @requesto.request("GET", "ftp://example.com/") catch {
 ///     UnsupportedProtocol(..) => None
 ///     error => raise error
 ///   } noraise {
@@ -28,7 +28,7 @@ pub async fn request(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.request(
@@ -99,7 +99,7 @@ pub async fn get(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.get(url, params~, headers~, timeout?, follow_redirects?, retry?)
@@ -114,7 +114,7 @@ pub async fn head(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.head(url, params~, headers~, timeout?, follow_redirects?, retry?)
@@ -129,7 +129,7 @@ pub async fn options(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.options(url, params~, headers~, timeout?, follow_redirects?, retry?)
@@ -144,7 +144,7 @@ pub async fn delete(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.delete(url, params~, headers~, timeout?, follow_redirects?, retry?)
@@ -166,7 +166,7 @@ pub async fn post(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.post(
@@ -202,7 +202,7 @@ pub async fn put(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.put(
@@ -238,7 +238,7 @@ pub async fn patch(
   timeout? : Int32,
   follow_redirects? : Bool,
   retry? : Retry,
-) -> Response raise ReqError {
+) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
   client.patch(

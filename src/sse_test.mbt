@@ -28,7 +28,7 @@ impl @http.BodyStream for Chunks with fn close(self) {
 /// A transport that records each request and streams `body` with `status`
 /// and `headers`.
 struct ChunksTransport {
-  sent : Array[@req.Request]
+  sent : Array[@requesto.Request]
   status : Int32
   headers : Array[(String, String)]
   body : Chunks
@@ -57,17 +57,17 @@ let event_stream : Array[(String, String)] = [
 /// A client whose streamed responses carry `chunks`.
 fn chunks_client(
   body : Chunks,
-  sent~ : Array[@req.Request] = [],
+  sent~ : Array[@requesto.Request] = [],
   status~ : Int32 = 200,
   headers~ : Array[(String, String)] = event_stream,
   client_headers~ : Array[(String, String)] = [],
   max_body_bytes? : Int32?,
-) -> @req.Client {
-  @req.Client::new(
+) -> @requesto.Client {
+  @requesto.Client::new(
     transport=ChunksTransport::{ sent, status, headers, body, },
     headers=client_headers,
     max_body_bytes?,
-    retry=@req.Retry::none(),
+    retry=@requesto.Retry::none(),
   )
 }
 
@@ -75,14 +75,15 @@ fn chunks_client(
 /// The variant a body operation raised, with its message where it has one.
 fn failure(error : Error) -> String {
   match error {
-    @req.ReqError::Protocol(message~, ..) => "Protocol \{message}"
-    @req.ReqError::Decoding(message~) => "Decoding \{message}"
-    @req.ReqError::Status(response~, ..) => {
+    @requesto.RequestoError::Protocol(message~, ..) => "Protocol \{message}"
+    @requesto.RequestoError::Decoding(message~) => "Decoding \{message}"
+    @requesto.RequestoError::Status(response~, ..) => {
       let text = response.text() catch { _ => "<unread>" }
       "Status \{response.status} \{text}"
     }
-    @req.ReqError::StreamConsumed(..) => "StreamConsumed"
-    @req.ReqError::UnsupportedProtocol(url~) => "UnsupportedProtocol \{url}"
+    @requesto.RequestoError::StreamConsumed(..) => "StreamConsumed"
+    @requesto.RequestoError::UnsupportedProtocol(url~) =>
+      "UnsupportedProtocol \{url}"
     error => "unexpected \{error}"
   }
 }
@@ -214,7 +215,7 @@ async test "a body in memory is parsed in slices, so every event arrives" {
   }
   let content = buffer.to_bytes()
   assert_true(content.length() > 3 * 65_536)
-  let response = @req.Response::new(
+  let response = @requesto.Response::new(
     200,
     @http.Request::get("https://a.test/events"),
     headers=@http.Headers::from_array(event_stream),
@@ -226,7 +227,7 @@ async test "a body in memory is parsed in slices, so every event arrives" {
     count += 1
   })
   assert_eq(count, 200)
-  let response = @req.Response::new(
+  let response = @requesto.Response::new(
     200,
     @http.Request::get("https://a.test/lines"),
     content~,
@@ -328,7 +329,7 @@ async test "sse raises Status with the body, returns on 204 and refuses other ty
 
 ///|
 async test "sse with a throw-away client refuses what Client::sse refuses" {
-  let outcome = try @req.sse("GET", "ftp://a.test/events", _ => ()) catch {
+  let outcome = try @requesto.sse("GET", "ftp://a.test/events", _ => ()) catch {
     error => failure(error)
   } noraise {
     _ => "ended"
@@ -340,14 +341,14 @@ async test "sse with a throw-away client refuses what Client::sse refuses" {
 async test "close in a callback stops each_line and each_event on a buffered body" {
   let request = @http.Request::get("https://a.test/")
   let lines = []
-  let buffered = @req.Response::new(200, request, content=b"a\nb\nc\n")
+  let buffered = @requesto.Response::new(200, request, content=b"a\nb\nc\n")
   buffered.each_line(line => {
     lines.push(line)
     buffered.close()
   })
   assert_eq(lines, ["a"])
   let events = []
-  let stream = @req.Response::new(
+  let stream = @requesto.Response::new(
     200,
     request,
     headers=@http.Headers::from_array([("Content-Type", "text/event-stream")]),

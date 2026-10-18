@@ -1,7 +1,7 @@
 ///|
 async test "a cookie set on a redirect hop is sent on the next hop and kept" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=routes(sent, [
       (
         "https://a.test/login",
@@ -28,7 +28,7 @@ async test "a cookie set on a redirect hop is sent on the next hop and kept" {
 ///|
 async test "a Cookie header the call sets wins over the jar" {
   let sent = []
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=routes(sent, [
       ("https://a.test/set", 200, [("Set-Cookie", "sid=1")]),
     ]),
@@ -42,14 +42,17 @@ async test "a Cookie header the call sets wins over the jar" {
 async test "cookies=Off keeps none; Jar(jar) shares one between clients" {
   let sent = []
   let table = [("https://a.test/set", 200, [("Set-Cookie", "sid=1")])]
-  let off = @req.Client::new(cookies=Off, transport=routes(sent, table))
+  let off = @requesto.Client::new(cookies=Off, transport=routes(sent, table))
   assert_true(off.cookies() is None)
   let _ = off.get("https://a.test/set")
   let _ = off.get("https://a.test/")
   assert_eq(sent[1].headers.get("cookie"), None)
-  let first = @req.Client::new(transport=routes(sent, table))
+  let first = @requesto.Client::new(transport=routes(sent, table))
   let jar = first.cookies().unwrap()
-  let second = @req.Client::new(cookies=Jar(jar), transport=routes(sent, table))
+  let second = @requesto.Client::new(
+    cookies=Jar(jar),
+    transport=routes(sent, table),
+  )
   let _ = first.get("https://a.test/set")
   let _ = second.get("https://a.test/")
   assert_eq(sent.last().unwrap().headers.get("cookie"), Some("sid=1"))
@@ -60,7 +63,7 @@ async test "cookies=Off keeps none; Jar(jar) shares one between clients" {
 async test "the client's jar reads the client's clock" {
   let sent = []
   let clock = @simclock.VirtualClock()
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     clock~,
     transport=routes(sent, [
       ("https://a.test/set", 200, [("Set-Cookie", "sid=1; Max-Age=60")]),
@@ -82,7 +85,7 @@ async test "the client's jar reads the client's clock" {
 async test "the client's jar keeps 50 cookies per domain and 3000 in all" {
   let sent = []
   let many = Array::makei(51, i => ("Set-Cookie", "c\{i}=1"))
-  let client = @req.Client::new(
+  let client = @requesto.Client::new(
     transport=routes(sent, [("https://a.test/", 200, many)]),
   )
   let _ = client.get("https://a.test/")
