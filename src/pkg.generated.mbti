@@ -5,6 +5,7 @@ import {
   "gaato/http",
   "gaato/http/clock",
   "gaato/http/cookie",
+  "gaato/http/sse",
   "gaato/sdk-runtime/multipart",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
@@ -30,6 +31,8 @@ pub async fn post(String, params? : Array[(String, String)], headers? : Array[(S
 pub async fn put(String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, follow_redirects? : Bool) -> Response raise ReqError
 
 pub async fn request(String, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, follow_redirects? : Bool) -> Response raise ReqError
+
+pub async fn sse(String, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, max_event_bytes? : Int, async (@sse.SseEvent) -> Unit) -> Unit
 
 pub async fn[T] stream(String, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, follow_redirects? : Bool, async (Response) -> T) -> T
 
@@ -80,6 +83,7 @@ pub async fn Client::patch(Self, String, params? : Array[(String, String)], head
 pub async fn Client::post(Self, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, follow_redirects? : Bool) -> Response raise ReqError
 pub async fn Client::put(Self, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, follow_redirects? : Bool) -> Response raise ReqError
 pub async fn Client::request(Self, String, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, follow_redirects? : Bool) -> Response raise ReqError
+pub async fn Client::sse(Self, String, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, max_event_bytes? : Int, async (@sse.SseEvent) -> Unit) -> Unit
 pub async fn[T] Client::stream(Self, String, String, params? : Array[(String, String)], headers? : Array[(String, String)], content? : Bytes, text? : String, data? : Array[(String, String)], files? : Array[@multipart.Part], json? : Json, body_stream? : &@http.BodyStream, body_length? : Int64, timeout? : Int, follow_redirects? : Bool, async (Response) -> T) -> T
 
 pub(all) enum Cookies {
@@ -106,7 +110,9 @@ pub struct Response {
 }
 pub fn Response::close(Self) -> Unit
 pub fn Response::content(Self) -> Bytes raise ReqError
-pub async fn Response::each_chunk(Self, async (Bytes) -> Unit raise ReqError) -> Unit raise ReqError
+pub async fn Response::each_chunk(Self, async (Bytes) -> Unit) -> Unit
+pub async fn Response::each_event(Self, async (@sse.SseEvent) -> Unit, max_event_bytes? : Int) -> Unit
+pub async fn Response::each_line(Self, async (String) -> Unit, max_line_bytes? : Int) -> Unit
 pub fn Response::is_client_error(Self) -> Bool
 pub fn Response::is_error(Self) -> Bool
 pub fn Response::is_informational(Self) -> Bool
@@ -135,6 +141,8 @@ pub using @http {type Phase}
 pub using @http {type Request}
 
 pub using @cookie {type SameSite}
+
+pub using @sse {type SseEvent}
 
 pub type Step = async (@http.Request, async (@http.Request) -> Response raise ReqError) -> Response raise ReqError
 

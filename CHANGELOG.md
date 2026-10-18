@@ -26,8 +26,15 @@ never does. Every breaking change is listed with a migration note.
   `elapsed`; `content`, `text`, `json`, `json_as`, status-class predicates
   and `raise_for_status`; `Response::new` for steps and tests.
 - `Client::stream` and the top-level `stream`: the response arrives with its
-  body on the connection, read with `read`, `read_some` or `each_chunk`,
-  and closed when the callback returns.
+  body on the connection, read with `read`, `read_some`, `each_chunk` or
+  `each_line` (lines up to `max_line_bytes`, 16 MiB by default), and closed
+  when the callback returns. Calling `close` in an `each_*` callback stops
+  the loop there.
+- Server-sent events: `Response::each_event` parses a `text/event-stream`
+  body into `SseEvent`s (each up to `max_event_bytes`, 16 MiB by default),
+  and `Client::sse` and the top-level `sse` send the request with
+  `Accept: text/event-stream` and call back with each event, raising
+  `Status` for a non-2xx response. No automatic reconnection.
 - `Url`, gaato/http's RFC 3986 URL, to take apart, resolve and compare
   response URLs. A call's URL is parsed with it before sending: a bad port,
   IPv6 literal or host raises `InvalidURL`, and the URL sent is normalised

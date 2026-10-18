@@ -33,16 +33,21 @@ async fn example() -> Unit raise {
 ## What it does
 
 - `get`, `post`, `put`, `patch`, `delete`, `head`, `options` and `request`, on a `Client` or as top-level functions.
-- Client defaults: `base_url` (always appended to), `headers`, `params` (merged into any query already in the URL), `auth` (`Basic`, `Bearer`), `timeout`.
-- One body per call: `content` (bytes), `text`, `data` (form), `files` (multipart, `@req.Part`) or `json`.
+- Client defaults: `base_url` (always appended to), `headers`, `params` (merged into any query already in the URL), `auth` (`Basic`, `Bearer`, `Digest`), `timeout`.
+- One body per call: `content` (bytes), `text`, `data` (form), `files` (multipart, `@req.Part`), `json` or `body_stream`.
 - A response is a value whatever its status; `raise_for_status()` turns non-2xx into `ReqError::Status`.
 - Redirects followed (at most 10, credentials dropped across origins, no `https` to `http`), with `history`; `follow_redirects=false` per client or call.
 - Cookies kept per client in an RFC 6265 jar, `client.cookies()`; `cookies=Jar(jar)` shares one, `cookies=Off` keeps none.
-- Bounded by default: 30 s per exchange, 64 MiB per buffered body.
+- Retries with backoff for failures that are safe to repeat.
+- Streaming both ways: `stream` hands over the response while its body is still arriving (`read_some`, `each_chunk`, `each_line`); `body_stream` and `Part::file_stream` send a body as it is read.
+- Server-sent events: `client.sse("GET", url, event => ...)`, or `each_event` on a streamed response.
+- URLs checked and normalised before sending; `@req.Url` takes response URLs apart and resolves links.
+- Timeouts per call and per phase (`connect_timeout`, `write_timeout`, `read_timeout`, `pool_timeout`), `proxy` (or `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`), and connection limits (`max_connections`, `max_connections_per_origin`).
+- Bounded by default: 30 s per exchange, 64 MiB per buffered body, 16 MiB per event or line.
 - `steps`, links of the chain around the transport, with `on_request` and `on_response` hooks.
 - Tests swap the transport for `MockTransport::new(request => response)` and the clock for `VirtualClock` from `gaato/http-async/mock`.
 
-Not yet: retries, streaming, proxies. On JS, `fetch` follows redirects before the client sees them, and in browsers handles cookies itself.
+Not yet: HTTP/2, response caching. On JS, `fetch` follows redirects before the client sees them, and in browsers handles cookies itself.
 
 ## Coming from
 
@@ -55,6 +60,11 @@ Not yet: retries, streaming, proxies. On JS, `fetch` follows redirects before th
 | Read JSON | `.json()` | `.json()` / `data` | `.body` | `.json()`, `.json_as()` |
 | Redirects | `follow_redirects=`, `.history` | `maxRedirects` / `redirect` | `redirect:`, `max_redirects:` | `follow_redirects=`, `max_redirects=`, `.history` |
 | Cookies | `client.cookies` | the browser's | — | `client.cookies()`, `cookies=Jar(jar)` |
+| Retries | urllib3 `Retry` / `retries=` | `retry` (ky) | `retry:` | built in, with backoff |
+| Streaming | `client.stream(...)`, `iter_lines()` | `responseType: 'stream'` | `into: fun` | `client.stream(...)`, `each_line` |
+| SSE | `httpx_sse.connect_sse` | `EventSource` | — | `client.sse(...)`, `each_event` |
+| Timeouts | `httpx.Timeout(connect=...)` | `timeout` | `receive_timeout:` | `timeout=`, `connect_timeout=`, ... |
+| Proxy | `proxy=` | `proxy` (axios) | `connect_options:` | `proxy=`, `trust_env` |
 | Hooks | `event_hooks` | interceptors / hooks | steps | `steps=[on_request(...), ...]` |
 | Mock | `httpx.MockTransport` | — | `Req.Test` | `@req.MockTransport` |
 

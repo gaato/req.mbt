@@ -11,8 +11,9 @@ pub type Phase = @http.Phase
 /// `raise_for_status` to turn the ones outside 200 through 299 into an error.
 ///
 /// A response from `Client::stream` holds its body unread: `read` buffers
-/// it, `read_some` and `each_chunk` take it chunk by chunk, and `close`
-/// drops the rest. Any other call's response arrives read.
+/// it, `read_some` and `each_chunk` take it chunk by chunk, `each_line` and
+/// `each_event` line by line and event by event, and `close` drops the
+/// rest. Any other call's response arrives read.
 pub struct Response {
   /// The status code.
   status : Int32
@@ -190,14 +191,52 @@ pub async fn Response::read_some(self : Response) -> Bytes? raise ReqError {
 }
 
 ///|
-/// Calls `f` with each chunk of the body, in order, until its end.
+/// Calls `f` with each chunk of the body, in order, until its end. Calling
+/// `close` in `f` stops there.
 pub async fn Response::each_chunk(
   self : Response,
-  f : async (Bytes) -> Unit raise ReqError,
-) -> Unit raise ReqError {
+  f : async (Bytes) -> Unit,
+) -> Unit {
   while self.read_some() is Some(chunk) {
     f(chunk)
+    if self.is_closed() {
+      return
+    }
   }
+}
+
+///|
+/// The most bytes of one read handed to a parser at once, so the events or
+/// lines it returns together are bounded by a slice, not by a read: a body
+/// in memory arrives as one read of any size.
+let slice_bytes : Int32 = 65_536
+
+///|
+/// Calls `f` with the body in slices of at most `slice_bytes`, in order,
+/// until its end or until `f` closes the response.
+async fn Response::each_slice(
+  self : Response,
+  f : async (Bytes) -> Unit,
+) -> Unit {
+  while self.read_some() is Some(chunk) {
+    for start = 0; start < chunk.length(); start = start + slice_bytes {
+      let slice = if start == 0 && chunk.length() <= slice_bytes {
+        chunk
+      } else {
+        chunk[start:(start + slice_bytes).min(chunk.length())].to_owned()
+      }
+      f(slice)
+      if self.is_closed() {
+        return
+      }
+    }
+  }
+}
+
+///|
+/// Whether `close` dropped the body before its end.
+fn Response::is_closed(self : Response) -> Bool {
+  self.body.state is Closed
 }
 
 ///|
