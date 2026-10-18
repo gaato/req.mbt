@@ -6,8 +6,9 @@ pub async fn Client::get(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
-  self.request("GET", url, params~, headers~, timeout?)
+  self.request("GET", url, params~, headers~, timeout?, follow_redirects?)
 }
 
 ///|
@@ -18,8 +19,9 @@ pub async fn Client::head(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
-  self.request("HEAD", url, params~, headers~, timeout?)
+  self.request("HEAD", url, params~, headers~, timeout?, follow_redirects?)
 }
 
 ///|
@@ -30,8 +32,9 @@ pub async fn Client::options(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
-  self.request("OPTIONS", url, params~, headers~, timeout?)
+  self.request("OPTIONS", url, params~, headers~, timeout?, follow_redirects?)
 }
 
 ///|
@@ -42,8 +45,9 @@ pub async fn Client::delete(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
-  self.request("DELETE", url, params~, headers~, timeout?)
+  self.request("DELETE", url, params~, headers~, timeout?, follow_redirects?)
 }
 
 ///|
@@ -61,6 +65,7 @@ pub async fn Client::post(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
   self.request(
     "POST",
@@ -75,6 +80,7 @@ pub async fn Client::post(
     body_stream?,
     body_length?,
     timeout?,
+    follow_redirects?,
   )
 }
 
@@ -93,6 +99,7 @@ pub async fn Client::put(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
   self.request(
     "PUT",
@@ -107,6 +114,7 @@ pub async fn Client::put(
     body_stream?,
     body_length?,
     timeout?,
+    follow_redirects?,
   )
 }
 
@@ -125,6 +133,7 @@ pub async fn Client::patch(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
   self.request(
     "PATCH",
@@ -139,5 +148,6 @@ pub async fn Client::patch(
     body_stream?,
     body_length?,
     timeout?,
+    follow_redirects?,
   )
 }

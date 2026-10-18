@@ -28,6 +28,9 @@ pub struct Client {
   priv timeout : Int32
   priv max_body_bytes : Int32?
   priv steps : Array[Step]
+  priv follow_redirects : Bool
+  priv max_redirects : Int32
+  priv jar : CookieJar?
   priv transport : &@http.Transport
   priv clock : &@clock.Clock
   priv owned : @adapter.AsyncTransport?
@@ -50,6 +53,17 @@ pub struct Client {
 ///   each call; `Response::read` applies it to a streamed body.
 /// - `steps`: links of the chain around the transport, the first outermost;
 ///   they see each request before `auth` is applied.
+/// - `follow_redirects`: follows 301, 302, 303, 307 and 308 responses, at
+///   most `max_redirects` (10) in a row, as gaato/http's `follow_redirects`
+///   does: 303, and 301 or 302 after `POST`, turn into `GET` without the
+///   body; `Authorization`, `Cookie` and `Proxy-Authorization` are dropped
+///   when the origin changes; `https` to `http` is refused. On by default;
+///   each call can turn it off or on. On JS, `fetch` follows redirects
+///   before the client sees them.
+/// - `cookies`: by default the client keeps cookies in a jar of its own on
+///   its clock (`Client::cookies`), at most 50 per domain and 3000 in all,
+///   applied on every redirect hop. `Jar(jar)` uses `jar` instead, `Off`
+///   keeps none.
 /// - `transport`: replaces the default `AsyncTransport` of gaato/http-async.
 /// - `clock`: measures `timeout` and `elapsed`.
 ///
@@ -85,6 +99,9 @@ pub fn Client::new(
   timeout~ : Int32 = default_timeout,
   max_body_bytes~ : Int32? = Some(default_max_body_bytes),
   steps~ : Array[Step] = [],
+  follow_redirects~ : Bool = true,
+  max_redirects~ : Int32 = default_max_redirects,
+  cookies? : Cookies,
   transport? : &@http.Transport,
   clock? : &@clock.Clock,
   connect_timeout? : Int32,
@@ -121,6 +138,7 @@ pub fn Client::new(
       (transport as &@http.Transport, Some(transport))
     }
   }
+  let clock = clock.unwrap_or_else(() => @adapter.AsyncClock::new())
   {
     base_url,
     headers: merge_headers(defaults, headers),
@@ -128,8 +146,11 @@ pub fn Client::new(
     timeout,
     max_body_bytes,
     steps,
+    follow_redirects,
+    max_redirects,
+    jar: cookie_jar(cookies, clock),
     transport,
-    clock: clock.unwrap_or_else(() => @adapter.AsyncClock::new()),
+    clock,
     owned,
   }
 }
@@ -141,6 +162,34 @@ pub fn Client::close(self : Client) -> Unit {
   if self.owned is Some(transport) {
     transport.close()
   }
+}
+
+///|
+/// The client's cookie jar, or `None` with `cookies=Off`.
+///
+/// ```mbt check
+/// test {
+///   let client = @req.Client::new()
+///   assert_eq(client.cookies().map(jar => jar.length()), Some(0))
+///   client.close()
+/// }
+/// ```
+pub fn Client::cookies(self : Client) -> CookieJar? {
+  self.jar
+}
+
+///|
+/// The client's steps, then the redirect step unless `follow_redirects` is
+/// off, then the cookie step: the chain of one call.
+fn Client::chain(self : Client, follow_redirects : Bool?) -> Array[Step] {
+  let steps = [..self.steps]
+  if follow_redirects.unwrap_or(self.follow_redirects) {
+    steps.push(redirect_step(self.max_redirects))
+  }
+  if self.jar is Some(jar) {
+    steps.push(cookie_step(jar))
+  }
+  steps
 }
 
 ///|
@@ -158,6 +207,8 @@ pub fn Client::close(self : Client) -> Unit {
 ///   files made with `Part::file_stream`, is sent at most once: retries and
 ///   redirects that would send it again stop instead.
 /// - `timeout` replaces the client's for this call.
+/// - `follow_redirects` replaces the client's for this call. The response
+///   carries the redirects followed in `history` and the final URL in `url`.
 pub async fn Client::request(
   self : Client,
   http_method : String,
@@ -172,6 +223,7 @@ pub async fn Client::request(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  follow_redirects? : Bool,
 ) -> Response raise ReqError {
   let request = self.build(
     http_method,
@@ -190,7 +242,7 @@ pub async fn Client::request(
   )
   let timeout = timeout.unwrap_or(self.timeout)
   run_steps(
-    self.steps,
+    self.chain(follow_redirects),
     request => self.exchange(request, timeout, stream=false),
     request,
   )
@@ -201,6 +253,9 @@ pub async fn Client::request(
 /// body is still on the connection, then closes it, whether `f` read it or
 /// not. Steps see the response before `f`; every response the call opened,
 /// including ones a step dropped or raised over, is closed when it ends.
+/// The redirect responses in `history` are closed unread before the next
+/// request goes out: they keep their status, headers and URL, not their
+/// bodies.
 ///
 /// ```mbt check
 /// async test {
@@ -233,6 +288,7 @@ pub async fn[T] Client::stream(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  follow_redirects? : Bool,
   f : async (Response) -> T,
 ) -> T {
   let request = self.build(
@@ -257,7 +313,7 @@ pub async fn[T] Client::stream(
   let opened : Array[Response] = []
   defer opened.each(response => response.close())
   let response = run_steps(
-    self.steps,
+    self.chain(follow_redirects),
     request => {
       let response = self.exchange(request, timeout, stream=true)
       opened.push(response)

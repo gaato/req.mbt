@@ -36,11 +36,13 @@ async fn example() -> Unit raise {
 - Client defaults: `base_url` (always appended to), `headers`, `params` (merged into any query already in the URL), `auth` (`Basic`, `Bearer`), `timeout`.
 - One body per call: `content` (bytes), `text`, `data` (form), `files` (multipart, `@req.Part`) or `json`.
 - A response is a value whatever its status; `raise_for_status()` turns non-2xx into `ReqError::Status`.
+- Redirects followed (at most 10, credentials dropped across origins, no `https` to `http`), with `history`; `follow_redirects=false` per client or call.
+- Cookies kept per client in an RFC 6265 jar, `client.cookies()`; `cookies=Jar(jar)` shares one, `cookies=Off` keeps none.
 - Bounded by default: 30 s per exchange, 64 MiB per buffered body.
 - `steps`, links of the chain around the transport, with `on_request` and `on_response` hooks.
 - Tests swap the transport for `MockTransport::new(request => response)` and the clock for `VirtualClock` from `gaato/http-async/mock`.
 
-Not yet: retries, following redirects, cookies, streaming, proxies. On JS, `fetch` follows redirects and applies cookies by itself.
+Not yet: retries, streaming, proxies. On JS, `fetch` follows redirects before the client sees them, and in browsers handles cookies itself.
 
 ## Coming from
 
@@ -51,6 +53,8 @@ Not yet: retries, following redirects, cookies, streaming, proxies. On JS, `fetc
 | JSON body | `json=...` | `json: ...` (ky) | `json: ...` | `json=...` |
 | Non-2xx | value, `raise_for_status()` | throws | value | value, `raise_for_status()` |
 | Read JSON | `.json()` | `.json()` / `data` | `.body` | `.json()`, `.json_as()` |
+| Redirects | `follow_redirects=`, `.history` | `maxRedirects` / `redirect` | `redirect:`, `max_redirects:` | `follow_redirects=`, `max_redirects=`, `.history` |
+| Cookies | `client.cookies` | the browser's | — | `client.cookies()`, `cookies=Jar(jar)` |
 | Hooks | `event_hooks` | interceptors / hooks | steps | `steps=[on_request(...), ...]` |
 | Mock | `httpx.MockTransport` | — | `Req.Test` | `@req.MockTransport` |
 

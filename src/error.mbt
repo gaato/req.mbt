@@ -16,8 +16,8 @@ pub(all) suberror ReqError {
   /// credentials, 403 when it refuses the destination, 502 or 504 when it
   /// could not reach it. Nothing reached the origin.
   Proxy(request~ : Request, status~ : Int32, message~ : String)
-  /// More than `max` redirects in a row; `request` is the one that would
-  /// have been sent next.
+  /// More than `max` redirects in a row; `request` is the last one sent,
+  /// whose response was the redirect past `max`.
   TooManyRedirects(request~ : Request, max~ : Int32)
   /// A redirect that is not followed: a `Location` that is not a usable
   /// URL, an `https` to `http` downgrade, or a stream body that cannot be

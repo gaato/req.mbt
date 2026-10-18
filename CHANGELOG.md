@@ -34,3 +34,17 @@ never does. Every breaking change is listed with a migration note.
 - `Step`, a link of the chain around the transport, and the `on_request` and
   `on_response` hooks built on it.
 - `MockTransport`, a transport that answers with a function, for tests.
+- Redirects, followed by default with gaato/http's `follow_redirects`:
+  `follow_redirects` per client and per call, `max_redirects` (10 by
+  default). 303, and 301 or 302 after `POST`, become `GET` without the
+  body; `Authorization`, `Cookie` and `Proxy-Authorization` are dropped
+  when the origin changes; `https` to `http` and resending a stream body
+  are refused with `InvalidRedirect`, a longer chain with
+  `TooManyRedirects`. `history` holds the redirect responses, oldest first,
+  and `url` the final URL; a streamed call closes each redirect before the
+  next request.
+- Cookies: a client keeps an RFC 6265 jar of its own on its clock (50
+  cookies per domain, 3000 in all) and applies it on every redirect hop;
+  `cookies=Jar(jar)` shares or seeds one, `cookies=Off` keeps none.
+  `Client::cookies`, and `CookieJar`, `Cookie` and `SameSite` from
+  gaato/http.
