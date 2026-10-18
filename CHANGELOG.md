@@ -10,7 +10,7 @@ never does. Every breaking change is listed with a migration note.
 ### Added
 
 - `Client::new` with a base URL, default headers, query parameters, `Auth`
-  (`Basic`, `Bearer`), a timeout (30 s by default) and a buffered body limit
+  (`Basic`, `Bearer`, `Digest`), a timeout (30 s by default) and a buffered body limit
   (64 MiB by default), plus `steps`, `transport` and `clock`. For the
   default transport: `connect_timeout`, `write_timeout`, `read_timeout`,
   `pool_timeout`, `max_connections`, `max_connections_per_origin`,
@@ -33,13 +33,16 @@ never does. Every breaking change is listed with a migration note.
 - Server-sent events: `Response::each_event` parses a `text/event-stream`
   body into `SseEvent`s (each up to `max_event_bytes`, 16 MiB by default),
   and `Client::sse` and the top-level `sse` send the request with
-  `Accept: text/event-stream` and call back with each event, raising
+  `Accept: text/event-stream` and `Cache-Control: no-store` and call back with each event, raising
   `Status` for a non-2xx response. No automatic reconnection.
 - `Url`, gaato/http's RFC 3986 URL, to take apart, resolve and compare
   response URLs. A call's URL is parsed with it before sending: a bad port,
   IPv6 literal or host raises `InvalidURL`, and the URL sent is normalised
   (lower-case scheme and host, no default port, no dot segments, non-ASCII
-  percent-encoded).
+  percent-encoded). Credentials in the URL (`user:pass@`) leave it and are
+  sent as Basic `Authorization`, in place of the client's `auth`, unless
+  the call sets `Authorization`, as requests and httpx do; error messages
+  and debug output show them as `<redacted>`.
 - `ReqError`, one error for every failure, naming the phase a transport
   failure happened in, with `is_timeout`, `is_transport_error` and
   `is_unsent`.

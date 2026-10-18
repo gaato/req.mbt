@@ -42,10 +42,7 @@ pub impl @debug.Debug for Auth with fn to_repr(self) {
 /// themselves. `random` draws Digest's client nonces.
 fn auth_step(auth : Auth, random : () -> Double) -> Step {
   match auth {
-    Basic(username~, password~) =>
-      header_step(
-        "Basic " + @base64.encode(@utf8.encode(username + ":" + password)),
-      )
+    Basic(username~, password~) => header_step(basic_value(username, password))
     Bearer(token) => header_step("Bearer " + token)
     Digest(username~, password~) => digest_step(username, password, random)
   }
@@ -62,4 +59,11 @@ fn header_step(value : String) -> Step {
     headers.set("authorization", value)
     next({ ..request, headers, })
   }
+}
+
+///|
+/// The `Authorization` value of HTTP Basic: `username:password`, UTF-8 and
+/// base64-encoded.
+fn basic_value(username : String, password : String) -> String {
+  "Basic " + @base64.encode(@utf8.encode(username + ":" + password))
 }

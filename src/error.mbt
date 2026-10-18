@@ -42,13 +42,14 @@ pub(all) suberror ReqError {
 
 ///|
 /// Debug output names the request by method and URL and the response by
-/// status, so headers such as `Authorization` never appear in it.
+/// status, so headers such as `Authorization` never appear in it, and
+/// credentials in a URL are redacted.
 pub extend ReqError with @debug.Debug::{to_repr}
 
 ///|
 pub impl @debug.Debug for ReqError with fn to_repr(self) {
   let request = (request : Request) => {
-    @debug.Repr::literal(request.http_method + " " + request.url)
+    @debug.Repr::literal(request.http_method + " " + redact_url(request.url))
   }
   let string = (value : String) => @debug.Repr::Repr(value)
   match self {
@@ -83,7 +84,7 @@ pub impl @debug.Debug for ReqError with fn to_repr(self) {
     InvalidRedirect(request=r, location~, message~) =>
       @debug.Repr::ctor("InvalidRedirect", [
         (Some("request"), request(r)),
-        (Some("location"), string(location)),
+        (Some("location"), string(redact_url(location))),
         (Some("message"), string(message)),
       ])
     ResponseNotRead(request=r) =>
@@ -91,10 +92,12 @@ pub impl @debug.Debug for ReqError with fn to_repr(self) {
     StreamConsumed(request=r) =>
       @debug.Repr::ctor("StreamConsumed", [(Some("request"), request(r))])
     UnsupportedProtocol(url~) =>
-      @debug.Repr::ctor("UnsupportedProtocol", [(Some("url"), string(url))])
+      @debug.Repr::ctor("UnsupportedProtocol", [
+        (Some("url"), string(redact_url(url))),
+      ])
     InvalidURL(url~, message~) =>
       @debug.Repr::ctor("InvalidURL", [
-        (Some("url"), string(url)),
+        (Some("url"), string(redact_url(url))),
         (Some("message"), string(message)),
       ])
     InvalidRequest(message~) =>
@@ -117,7 +120,9 @@ pub extend ReqError with Show::{to_string, output}
 /// A one-line message naming the request by method and URL, without headers
 /// or bodies.
 pub impl Show for ReqError with fn output(self, logger) {
-  let target = (request : Request) => request.http_method + " " + request.url
+  let target = (request : Request) => {
+    request.http_method + " " + redact_url(request.url)
+  }
   let message = match self {
     Timeout(request~, phase~, timeout~) =>
       "\{target(request)}: timed out after \{timeout} ms\{phase_suffix(phase)}"
@@ -130,13 +135,14 @@ pub impl Show for ReqError with fn output(self, logger) {
     TooManyRedirects(request~, max~) =>
       "\{target(request)}: more than \{max} redirects"
     InvalidRedirect(request~, location~, message~) =>
-      "\{target(request)}: redirect to \{location} not followed: \{message}"
+      "\{target(request)}: redirect to \{redact_url(location)} not followed: \{message}"
     ResponseNotRead(request~) =>
       "\{target(request)}: the streamed body has not been read"
     StreamConsumed(request~) =>
       "\{target(request)}: the streamed body was consumed or closed"
-    UnsupportedProtocol(url~) => "unsupported protocol in URL: \{url}"
-    InvalidURL(url~, message~) => "invalid URL \{url}: \{message}"
+    UnsupportedProtocol(url~) =>
+      "unsupported protocol in URL: \{redact_url(url)}"
+    InvalidURL(url~, message~) => "invalid URL \{redact_url(url)}: \{message}"
     InvalidRequest(message~) => "invalid request: \{message}"
     Decoding(message~) => "cannot decode the response body: \{message}"
     Status(request~, response~) =>

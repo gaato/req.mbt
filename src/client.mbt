@@ -194,7 +194,9 @@ pub fn Client::cookies(self : Client) -> CookieJar? {
 ///
 /// - `url` is joined to `base_url`, then parsed and normalised as `Url`
 ///   does; one that is not an absolute `http` or `https` URL is refused
-///   before anything is sent.
+///   before anything is sent. Credentials in it (`user:pass@`) are taken
+///   out of the URL and sent as Basic `Authorization`, in place of the
+///   client's `auth`, unless the call sets `Authorization` itself.
 /// - `params` are added to the URL's query, after the client's; a name given
 ///   here replaces the client's parameters of that name.
 /// - `headers` replace the client's headers of the same names.
@@ -359,11 +361,19 @@ fn Client::build(
   body : Body,
 ) -> Request raise ReqError {
   check_method(http_method)
-  let url = parse_url(join_url(self.base_url, url))
+  let parsed = parse_url(join_url(self.base_url, url))
+  let url = without_userinfo(
+    parsed
     .without_fragment()
     .append_query_params(merge_params(self.params, params))
-    .to_string()
+    .to_string(),
+    parsed.userinfo,
+  )
   let headers = merge_headers(self.headers, headers)
+  if parsed.userinfo is Some(userinfo) && !headers.contains("authorization") {
+    let (username, password) = split_userinfo(userinfo)
+    headers.set("authorization", basic_value(username, password))
+  }
   let (content_type, body) = body.encode(random=self.random)
   if content_type is Some(value) && !headers.contains("content-type") {
     headers.set("content-type", value)

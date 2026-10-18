@@ -263,11 +263,19 @@ async test "each_line holds max_line_bytes of a line and refuses one more" {
 }
 
 ///|
-async test "sse asks for an event stream unless the call sets Accept" {
-  let cases : Array[(Array[(String, String)], Array[(String, String)], String)] = [
-    ([], [], "text/event-stream"),
-    ([("Accept", "application/json")], [], "text/event-stream"),
-    ([], [("accept", "text/event-stream, */*")], "text/event-stream, */*"),
+async test "sse asks for an uncached event stream unless the call says otherwise" {
+  let cases : Array[
+    (Array[(String, String)], Array[(String, String)], String, String),
+  ] = [
+    ([], [], "text/event-stream", "no-store"),
+    ([("Accept", "application/json")], [], "text/event-stream", "no-store"),
+    (
+      [],
+      [("accept", "text/event-stream, */*")],
+      "text/event-stream, */*",
+      "no-store",
+    ),
+    ([], [("Cache-Control", "no-cache")], "text/event-stream", "no-cache"),
   ]
   for case in cases {
     let sent = []
@@ -279,6 +287,7 @@ async test "sse asks for an event stream unless the call sets Accept" {
       event => events.push(event.data),
     )
     assert_eq(sent[0].headers.get_all("accept"), [case.2])
+    assert_eq(sent[0].headers.get_all("cache-control"), [case.3])
     assert_eq(events, ["hi"])
   }
 }

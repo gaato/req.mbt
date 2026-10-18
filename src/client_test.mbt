@@ -303,3 +303,51 @@ async test "transport failures surface as error variants carrying the request" {
     assert_eq(outcome, case.1)
   }
 }
+
+///|
+async test "credentials in a URL become Basic auth and leave the URL" {
+  let sent : Array[@req.Request] = []
+  let transport = @req.MockTransport::new(request => {
+    sent.push(request)
+    { status: 200, headers: @http.Headers::new(), body: b"", }
+  })
+  let client = @req.Client::new(transport~, auth=Bearer("client-token"))
+  ignore(client.get("https://us%40er:p%3Ass@a.test/x"))
+  ignore(
+    client.get("https://u:p@a.test/y", headers=[("Authorization", "Token t")]),
+  )
+  ignore(client.get("https://a.test/z"))
+  let based = @req.Client::new(transport~, base_url="https://u:p@a.test/v1")
+  ignore(based.get("items"))
+  assert_eq(sent.map(r => r.url), [
+    "https://a.test/x", "https://a.test/y", "https://a.test/z", "https://a.test/v1/items",
+  ])
+  assert_eq(sent.map(r => r.headers.get("authorization")), [
+    Some("Basic dXNAZXI6cDpzcw=="),
+    Some("Token t"),
+    Some("Bearer client-token"),
+    Some("Basic dTpw"),
+  ])
+}
+
+///|
+async test "error messages never show credentials from a URL" {
+  let client = @req.Client::new(
+    transport=@req.MockTransport::new(_ => raise @http.HttpError::Connect("no")),
+    retry=@req.Retry::none(),
+  )
+  let messages = []
+  for
+    url in [
+      "https://user:secret@a.test:99999/", "ftp://user:secret@a.test/", "https://user:secret@a.test/",
+    ] {
+    let message = try client.get(url) catch {
+      error => error.to_string() + " " + @debug.to_string(error)
+    } noraise {
+      _ => "sent"
+    }
+    messages.push(message)
+    assert_false(message.contains("secret"), msg=message)
+  }
+  assert_true(messages[0].contains("<redacted>@a.test"), msg=messages[0])
+}

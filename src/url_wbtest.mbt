@@ -126,8 +126,8 @@ test "build normalises the URL it sends" {
     ("http://a.test?x", "http://a.test?x"),
     ("http://[::1]/", "http://[::1]/"),
     ("http://[2001:DB8:0:0:0:0:0:1]:8080/x", "http://[2001:db8::1]:8080/x"),
-    ("https://user:p%40ss@a.test/x", "https://user:p%40ss@a.test/x"),
-    ("https://us\u{e9}r@a.test/", "https://us%C3%A9r@a.test/"),
+    ("https://user:p%40ss@a.test/x", "https://a.test/x"),
+    ("https://us\u{e9}r@a.test/", "https://a.test/"),
     ("https://a.test/caf\u{e9}?q=\u{e9}", "https://a.test/caf%C3%A9?q=%C3%A9"),
     ("https://a.test/a%20b?c%26d", "https://a.test/a%20b?c%26d"),
     ("https://a.test/{x}|\"<>", "https://a.test/%7Bx%7D|%22%3C%3E"),
@@ -138,6 +138,11 @@ test "build normalises the URL it sends" {
     let request = client.build("GET", case.0, [], [], Empty)
     assert_eq(request.url, case.1, msg=case.0)
   }
+  // Userinfo leaves the URL as Basic auth, decoded: "user:p@ss", "usér:".
+  let auth = ["https://user:p%40ss@a.test/x", "https://us\u{e9}r@a.test/"].map(url => {
+    client.build("GET", url, [], [], Empty).headers.get("authorization")
+  })
+  assert_eq(auth, [Some("Basic dXNlcjpwQHNz"), Some("Basic dXPDqXI6")])
 }
 
 ///|
@@ -223,4 +228,51 @@ test "merge_headers replaces every value of a name the overrides use" {
     assert_eq(merged.iter().collect(), case.1)
   }
   assert_eq(base.length(), 4, msg="the base is not changed")
+}
+
+///|
+test "userinfo splits at the first colon and is percent-decoded" {
+  let cases : Array[(String, (String, String))] = [
+    ("user:pass", ("user", "pass")),
+    ("user", ("user", "")),
+    ("user:", ("user", "")),
+    (":pass", ("", "pass")),
+    ("u:p:q", ("u", "p:q")),
+    ("a%40b:p%3Aq", ("a@b", "p:q")),
+    ("%E3%81%82:%F0%9F%94%91", ("あ", "🔑")),
+    ("100%:%zz%4", ("100%", "%zz%4")),
+    ("%ff:x", ("\u{fffd}", "x")),
+  ]
+  for case in cases {
+    assert_eq(split_userinfo(case.0), case.1, msg=case.0)
+  }
+}
+
+///|
+test "userinfo is taken out of a URL that has it" {
+  let cases : Array[(String, String?, String)] = [
+    ("https://u:p@a.test/x?q", Some("u:p"), "https://a.test/x?q"),
+    ("http://u@[::1]:8080/", Some("u"), "http://[::1]:8080/"),
+    ("https://a.test/u:p@x", None, "https://a.test/u:p@x"),
+    ("https://a.test/", Some("u:p"), "https://a.test/"),
+  ]
+  for case in cases {
+    assert_eq(without_userinfo(case.0, case.1), case.2, msg=case.0)
+  }
+}
+
+///|
+test "redact_url hides the userinfo of the authority only" {
+  let cases : Array[(String, String)] = [
+    ("https://u:p@a.test/x", "https://<redacted>@a.test/x"),
+    ("https://u:p@a.test", "https://<redacted>@a.test"),
+    ("https://u@p@a.test/x?y@z", "https://<redacted>@a.test/x?y@z"),
+    ("https://a.test/x@y", "https://a.test/x@y"),
+    ("https://a.test?u@v", "https://a.test?u@v"),
+    ("not a url", "not a url"),
+    ("//u:p@a.test/", "//<redacted>@a.test/"),
+  ]
+  for case in cases {
+    assert_eq(redact_url(case.0), case.1, msg=case.0)
+  }
 }

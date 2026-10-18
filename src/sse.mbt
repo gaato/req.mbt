@@ -104,8 +104,9 @@ pub async fn Response::each_event(
 ///|
 /// Sends a request for a server-sent event stream and calls `f` with each
 /// event, until the stream ends. The arguments are those of
-/// `Client::stream`; `Accept: text/event-stream` is sent unless `headers`
-/// set `Accept`.
+/// `Client::stream`; `Accept: text/event-stream` and `Cache-Control:
+/// no-store` are sent unless `headers` set them, so that no cache in
+/// between holds the stream back.
 ///
 /// A status outside 200 through 299 raises `Status`, with as much of the
 /// body as `max_body_bytes` lets it read; 204 No Content, a server's way to
@@ -152,7 +153,11 @@ pub async fn Client::sse(
     http_method,
     url,
     params~,
-    headers=with_default_header(headers, "Accept", "text/event-stream"),
+    headers=with_default_header(
+      with_default_header(headers, "Accept", "text/event-stream"),
+      "Cache-Control",
+      "no-store",
+    ),
     content?,
     text?,
     data?,

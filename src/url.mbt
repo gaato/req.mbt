@@ -111,3 +111,78 @@ fn parse_url(url : String) -> Url raise ReqError {
   }
   parsed
 }
+
+///|
+/// `url`, which `Url::to_string` wrote with `userinfo`, without it: the
+/// userinfo and its `@` follow the `://` directly.
+fn without_userinfo(url : String, userinfo : String?) -> String {
+  guard userinfo is Some(userinfo) && url.find("://") is Some(i) else {
+    return url
+  }
+  let start = i + 3
+  let prefix = userinfo + "@"
+  guard url[start:].has_prefix(prefix) else { return url }
+  url[:start].to_owned() + url[start + prefix.length():].to_owned()
+}
+
+///|
+/// The username and password of a URL's userinfo, percent-decoded: the
+/// part before the first `:` and the rest, empty when there is no `:`.
+fn split_userinfo(userinfo : String) -> (String, String) {
+  match userinfo.find(":") {
+    Some(i) =>
+      (
+        percent_decode(userinfo[:i].to_owned()),
+        percent_decode(userinfo[i + 1:].to_owned()),
+      )
+    None => (percent_decode(userinfo), "")
+  }
+}
+
+///|
+/// `text` with each `%XX` escape replaced by its byte, read as UTF-8 with
+/// U+FFFD for malformed bytes. A `%` not followed by two hex digits is kept.
+fn percent_decode(text : String) -> String {
+  guard text.contains("%") else { return text }
+  let bytes = @utf8.encode(text)
+  let out = Buffer()
+  let mut i = 0
+  while i < bytes.length() {
+    if bytes[i] == b'%' &&
+      i + 2 < bytes.length() &&
+      hex_value(bytes[i + 1]) is Some(high) &&
+      hex_value(bytes[i + 2]) is Some(low) {
+      out.write_byte((high * 16 + low).to_byte())
+      i += 3
+    } else {
+      out.write_byte(bytes[i])
+      i += 1
+    }
+  }
+  @utf8.decode_lossy(out.to_bytes())
+}
+
+///|
+fn hex_value(byte : Byte) -> Int32? {
+  match byte {
+    b'0'..<=b'9' => Some(byte.to_int() - b'0'.to_int())
+    b'a'..<=b'f' => Some(byte.to_int() - b'a'.to_int() + 10)
+    b'A'..<=b'F' => Some(byte.to_int() - b'A'.to_int() + 10)
+    _ => None
+  }
+}
+
+///|
+/// `url` with the userinfo of its authority, if any, replaced by
+/// `<redacted>`, for messages: `https://u:p@host/` becomes
+/// `https://<redacted>@host/`.
+fn redact_url(url : String) -> String {
+  guard url.find("//") is Some(i) else { return url }
+  let start = i + 2
+  let rest = url[start:]
+  let end = rest
+    .find_by(c => c == '/' || c == '?' || c == '#')
+    .unwrap_or(rest.length())
+  guard rest[:end].rev_find("@") is Some(at) else { return url }
+  url[:start].to_owned() + "<redacted>" + rest[at:].to_owned()
+}
