@@ -327,3 +327,29 @@ async test "steps run once per call, and auth again for each retry" {
     ["Bearer t"],
   ])
 }
+
+///|
+async test "a POST answered with a redirect is not sent again when the next hop fails" {
+  let clock = @simclock.VirtualClock()
+  let sent = []
+  let client = @req.Client::new(
+    transport=scripted(sent, [
+      Status(303, [("Location", "https://b.test/done")]),
+      Fail(Connect("refused")),
+      Status(200, []),
+    ]),
+    clock~,
+    random=() => 0.5,
+  )
+  @async.with_task_group(group => {
+    let outcome = run_bg(group, () => {
+      client.post("https://a.test/order", json=1)
+    })
+    clock.settle()
+    clock.advance(500)
+    assert_eq(outcome.val, Some("status 200"))
+  })
+  assert_eq(sent.map(request => request.http_method + " " + request.url), [
+    "POST https://a.test/order", "GET https://b.test/done", "GET https://b.test/done",
+  ])
+}

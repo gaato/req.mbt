@@ -217,3 +217,58 @@ async test "a retry passes through Digest again with the next nc" {
   assert_true(seen[1].unwrap().contains("nc=00000001"))
   assert_true(seen[2].unwrap().contains("nc=00000002"))
 }
+
+///|
+async test "Digest answers a redirected hop with that hop's URI" {
+  let seen : Array[(String, String?)] = []
+  let client = @req.Client::new(
+    auth=Digest(username="Mufasa", password="Circle of Life"),
+    random=() => 0.5,
+    retry=@req.Retry::none(),
+    transport=@req.MockTransport::new(request => {
+      let authorization = request.headers.get("authorization")
+      seen.push((request.url, authorization))
+      let (status, headers) = match (request.url, authorization) {
+        ("https://a.test/start", _) => (302, [("Location", "/dir/index.html")])
+        (_, None) => (401, [("WWW-Authenticate", challenge(nonce=rfc_nonce))])
+        (_, Some(_)) => (200, [])
+      }
+      { status, headers: @http.Headers::from_array(headers), body: b"", }
+    }),
+  )
+  let response = client.get("https://a.test/start")
+  assert_eq(response.status, 200)
+  assert_eq(seen.map(pair => pair.0), [
+    "https://a.test/start", "https://a.test/dir/index.html", "https://a.test/dir/index.html",
+  ])
+  assert_eq(
+    seen[2].1,
+    Some(
+      answer(
+        nonce=rfc_nonce,
+        nc="00000001",
+        response="1533fd14d2a9448ea55bd4eca0a54f5ef9387326d926a7350fe6a3c2357f454f",
+      ),
+    ),
+  )
+}
+
+///|
+async test "Digest never answers a challenge from another origin" {
+  let seen : Array[(String, String?)] = []
+  let client = @req.Client::new(
+    auth=Digest(username="Mufasa", password="Circle of Life"),
+    retry=@req.Retry::none(),
+    transport=@req.MockTransport::new(request => {
+      seen.push((request.url, request.headers.get("authorization")))
+      let (status, headers) = if request.url == "https://a.test/" {
+        (302, [("Location", "https://b.test/")])
+      } else {
+        (401, [("WWW-Authenticate", challenge(nonce=rfc_nonce))])
+      }
+      { status, headers: @http.Headers::from_array(headers), body: b"", }
+    }),
+  )
+  assert_eq(client.get("https://a.test/").status, 401)
+  assert_eq(seen, [("https://a.test/", None), ("https://b.test/", None)])
+}

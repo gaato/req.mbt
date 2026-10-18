@@ -51,7 +51,10 @@ never does. Every breaking change is listed with a migration note.
   `Network`, and of any method when nothing reached the server) and
   `Retry::none()`, per client and per call (`retry`). `Retry-After` is
   honoured up to 60 s, otherwise the wait is exponential with full jitter on
-  the client's clock; a body that streams is never sent twice.
+  the client's clock; a body that streams is never sent twice. Retries and
+  auth run per redirect hop, as in requests and Req: only the hop that
+  failed is sent again, and auth answers each hop on the call's origin
+  with that hop's method and URI.
 - `Auth::Digest` (RFC 7616 and RFC 2617): MD5, SHA-256 and their `-sess`
   forms, qop `auth` and `auth-int`, `userhash`, stale nonces, and nonce
   reuse per origin with a counted `nc`.

@@ -55,7 +55,8 @@ pub struct Client {
 ///   after decoding; `None` lifts it. The default transport applies it to
 ///   each call; `Response::read` applies it to a streamed body.
 /// - `steps`: links of the chain around the transport, the first outermost;
-///   they see each request before `retry` and `auth`.
+///   they see the call's first request and its final response, before
+///   redirects, retries and `auth`.
 /// - `retry`: when a call is sent again, `Retry::new()` by default: up to 3
 ///   retries of idempotent methods on 408, 429, 500, 502, 503, 504 and
 ///   transport failures, of any method when nothing was sent;
@@ -245,7 +246,7 @@ pub async fn Client::request(
   )
   let timeout = timeout.unwrap_or(self.timeout)
   run_steps(
-    self.chain(retry.unwrap_or(self.retry), follow_redirects),
+    self.chain(request, retry.unwrap_or(self.retry), follow_redirects),
     request => self.exchange(request, timeout, stream=false),
     request,
   )
@@ -317,7 +318,7 @@ pub async fn[T] Client::stream(
   let opened : Array[Response] = []
   defer opened.each(response => response.close())
   let response = run_steps(
-    self.chain(retry.unwrap_or(self.retry), follow_redirects),
+    self.chain(request, retry.unwrap_or(self.retry), follow_redirects),
     request => {
       let response = self.exchange(request, timeout, stream=true)
       opened.push(response)
@@ -329,20 +330,25 @@ pub async fn[T] Client::stream(
 }
 
 ///|
-/// The chain of one call, outermost first: the client's steps, the retry
-/// step, `auth`, the redirect step unless `follow_redirects` is off, then
-/// the cookie step.
+/// The chain of one call, outermost first: the client's steps, the
+/// redirect step unless `follow_redirects` is off, then for each hop the
+/// retry step, `auth` and the cookie step. Retries and auth run per hop, as
+/// in requests and Req: a hop is resent on its own, so a request already
+/// answered with a redirect is never sent again, and auth answers each hop
+/// with its own method and URI, but only on the origin of `request`.
 fn Client::chain(
   self : Client,
+  request : Request,
   retry : Retry,
   follow_redirects : Bool?,
 ) -> Array[Step] {
-  let chain = [..self.steps, retry_step(retry, self.clock, self.random)]
-  if self.auth is Some(auth) {
-    chain.push(auth)
-  }
+  let chain = [..self.steps]
   if follow_redirects.unwrap_or(self.follow_redirects) {
     chain.push(redirect_step(self.max_redirects))
+  }
+  chain.push(retry_step(retry, self.clock, self.random))
+  if self.auth is Some(auth) {
+    chain.push(same_origin_only(request.url, auth))
   }
   if self.jar is Some(jar) {
     chain.push(cookie_step(jar))
@@ -425,6 +431,12 @@ async fn Client::exchange(
     request,
     history: [],
     elapsed: (self.clock.now_unix_ms() - started).to_int(),
-    body: { state, max_bytes: self.max_body_bytes, clock: self.clock, timeout, },
+    body: {
+      state,
+      closed: false,
+      max_bytes: self.max_body_bytes,
+      clock: self.clock,
+      timeout,
+    },
   }
 }

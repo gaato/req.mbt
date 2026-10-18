@@ -249,7 +249,10 @@ fn digest_challenge(
     Some(_) => return None
   }
   let qop = match param("qop") {
-    // A session key needs a cnonce, which only a qop carries.
+    // A session key needs a cnonce, but RFC 2617 §3.2.2 forbids sending one
+    // without a qop, so a server cannot check any answer to a `-sess`
+    // challenge without qop (requests and httpx send ones it cannot).
+    // Such a challenge is declined and its 401 returned.
     None => if sess { return None } else { None }
     Some(list) => {
       let offered = list

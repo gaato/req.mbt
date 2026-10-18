@@ -335,3 +335,28 @@ async test "sse with a throw-away client refuses what Client::sse refuses" {
   }
   assert_eq(outcome, "UnsupportedProtocol ftp://a.test/events")
 }
+
+///|
+async test "close in a callback stops each_line and each_event on a buffered body" {
+  let request = @http.Request::get("https://a.test/")
+  let lines = []
+  let buffered = @req.Response::new(200, request, content=b"a\nb\nc\n")
+  buffered.each_line(line => {
+    lines.push(line)
+    buffered.close()
+  })
+  assert_eq(lines, ["a"])
+  let events = []
+  let stream = @req.Response::new(
+    200,
+    request,
+    headers=@http.Headers::from_array([("Content-Type", "text/event-stream")]),
+    content=b"data: 1\n\ndata: 2\n\n",
+  )
+  stream.each_event(event => {
+    events.push(event.data)
+    stream.close()
+  })
+  assert_eq(events, ["1"])
+  assert_eq(buffered.text(), "a\nb\nc\n", msg="the body stays readable")
+}

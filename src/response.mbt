@@ -49,6 +49,8 @@ priv enum BodyState {
 /// A response body and the limits for reading it.
 priv struct ResponseBody {
   mut state : BodyState
+  /// Set by `close`, whatever the state, to stop the `each_*` loops.
+  mut closed : Bool
   /// The most bytes `read` buffers.
   max_bytes : Int32?
   /// Bounds each read from the connection.
@@ -93,6 +95,7 @@ pub fn Response::new(
 fn buffered_body(content : Bytes) -> ResponseBody {
   {
     state: Buffered(content, delivered=false),
+    closed: false,
     max_bytes: None,
     clock: @adapter.AsyncClock::new(),
     timeout: 0,
@@ -234,15 +237,17 @@ async fn Response::each_slice(
 }
 
 ///|
-/// Whether `close` dropped the body before its end.
+/// Whether `close` was called, which ends the `each_*` loops.
 fn Response::is_closed(self : Response) -> Bool {
-  self.body.state is Closed
+  self.body.closed
 }
 
 ///|
-/// Drops the rest of a streamed body and releases its connection. A body in
-/// memory, or one read to its end, is left as it is.
+/// Drops the rest of a streamed body and releases its connection, and ends
+/// any `each_*` loop it is called from. A body in memory, or one read to
+/// its end, stays readable.
 pub fn Response::close(self : Response) -> Unit {
+  self.body.closed = true
   if self.body.state is Open(stream, ..) {
     self.body.state = Closed
     stream.close()

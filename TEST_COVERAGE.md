@@ -39,7 +39,7 @@ ledger OK, 1 = an unexplained or over-budget file, 2 = the run itself failed
 - moon's bundled tcc cannot link on some hosts (openSUSE); the script sets
   `MOON_CC=cc` unless it is already set.
 
-Snapshot at the last full measurement (2026-10-18): **99.7 %** (712/714
+Snapshot at the last full measurement (2026-10-18): **99.7 %** (718/720
 lines).
 
 ## Policy

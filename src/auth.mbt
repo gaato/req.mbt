@@ -67,3 +67,17 @@ fn header_step(value : String) -> Step {
 fn basic_value(username : String, password : String) -> String {
   "Basic " + @base64.encode(@utf8.encode(username + ":" + password))
 }
+
+///|
+/// `step` for requests to the origin of `url`; requests to any other origin,
+/// such as a redirect elsewhere, pass by it.
+fn same_origin_only(url : String, step : Step) -> Step {
+  let origin = @http.Url::parse(url) catch { _ => return step }
+  (request, next) => {
+    if same_origin_as(origin, request.url) {
+      step(request, next)
+    } else {
+      next(request)
+    }
+  }
+}

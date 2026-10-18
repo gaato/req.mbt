@@ -135,7 +135,7 @@ async test "303 turns POST into GET without the body; 307 keeps both" {
 }
 
 ///|
-async test "credentials are dropped when the origin changes, auth's included" {
+async test "credentials are dropped when the origin changes, auth back on its origin" {
   let sent = []
   let client = @req.Client::new(
     auth=Bearer("t"),
@@ -156,7 +156,10 @@ async test "credentials are dropped when the origin changes, auth's included" {
   }
   let kept = [Some("Bearer t"), Some("mine=1"), Some("Basic eA==")]
   let dropped = [None, None, None]
-  assert_eq(sent.map(credentials), [kept, kept, dropped, dropped])
+  // The client's auth belongs to the call's origin and is applied there
+  // again; the headers the redirect dropped stay dropped.
+  let auth_only = [Some("Bearer t"), None, None]
+  assert_eq(sent.map(credentials), [kept, kept, dropped, auth_only])
 }
 
 ///|
