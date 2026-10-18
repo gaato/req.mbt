@@ -21,8 +21,8 @@ source = "src"
 preferred_target = "native"
 
 import {
-  "gaato/http@0.2.1",
-  "gaato/http-async@0.2.1",
-  "gaato/sdk-runtime@0.3.1",
+  "gaato/http@0.3.0",
+  "gaato/http-async@0.3.0",
+  "gaato/sdk-runtime@0.4.0",
   "moonbitlang/async@0.22.5",
 }

@@ -38,7 +38,7 @@ async test "a call merges the client's defaults with its own arguments" {
     ("x-team", "b"),
     ("x-extra", "1"),
   ])
-  assert_eq(request.body, b"")
+  assert_eq(request.body, Bytes(b""))
 }
 
 ///|
@@ -97,13 +97,13 @@ async test "each body kind reaches the transport with its Content-Type" {
     })
     assert_eq(content_type, expected_type, msg="request \{i}")
     if case.2 is Some(body) {
-      assert_eq(request.body, body, msg="request \{i}")
+      assert_eq(request.body, Bytes(body), msg="request \{i}")
     }
   }
   let multipart = sent[4]
   let content_type = multipart.headers.get("content-type").unwrap()
   let boundary = content_type.split("boundary=").collect()[1].to_owned()
-  assert_eq(multipart.body, @multipart.encode(parts, boundary).1)
+  assert_eq(multipart.body, Bytes(@multipart.encode(parts, boundary).1))
 }
 
 ///|
@@ -170,7 +170,7 @@ async test "a response carries the status, headers, body, URL and request" {
   let response = client.get("https://a.test/x", params=[("q", "1")])
   assert_eq(response.status, 404)
   assert_eq(response.headers.get("content-type"), Some("application/json"))
-  assert_eq(response.content, b"{\"error\":\"missing\"}")
+  assert_eq(response.content(), b"{\"error\":\"missing\"}")
   assert_eq(response.json(), { "error": "missing" })
   assert_eq(response.url, "https://a.test/x?q=1")
   assert_true(physical_equal(response.request, sent[0]))
@@ -266,8 +266,10 @@ async test "hooks can raise, as raise_for_status does" {
 ///|
 async test "transport failures surface as error variants carrying the request" {
   let cases : Array[(@http.HttpError, String)] = [
-    (Connect("refused"), "Network refused"),
-    (Timeout(250), "Timeout 250"),
+    (Connect("refused"), "Network Dial refused"),
+    (Timeout(phase=Head, ms=250), "Timeout Head 250"),
+    (Network(phase=Write, message="reset"), "Network Write reset"),
+    (Proxy(status=502, message="Bad Gateway"), "Proxy 502 Bad Gateway"),
     (
       Protocol("response body exceeds 10 bytes"),
       "Protocol response body exceeds 10 bytes",
@@ -278,10 +280,12 @@ async test "transport failures surface as error variants carrying the request" {
       transport=@req.MockTransport::new(_ => raise case.0),
     )
     let outcome = try client.get("https://a.test/x") catch {
-      Network(request~, message~) if request.url == "https://a.test/x" =>
-        "Network \{message}"
-      Timeout(request~, timeout~) if request.url == "https://a.test/x" =>
-        "Timeout \{timeout}"
+      Network(request~, phase~, message~) if request.url == "https://a.test/x" =>
+        "Network \{@debug.to_string(phase)} \{message}"
+      Timeout(request~, phase~, timeout~) if request.url == "https://a.test/x" =>
+        "Timeout \{@debug.to_string(phase)} \{timeout}"
+      Proxy(request~, status~, message~) if request.url == "https://a.test/x" =>
+        "Proxy \{status} \{message}"
       Protocol(request~, message~) if request.url == "https://a.test/x" =>
         "Protocol \{message}"
       error => "unexpected \{error}"

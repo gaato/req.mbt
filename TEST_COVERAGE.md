@@ -64,4 +64,4 @@ Budgets are exact uncovered counts at the last measurement.
 
 | File | Budget | Reason |
 | --- | --- | --- |
-| src/body.mbt | 1 | The `InvalidBoundary` arm of the multipart error mapping: `encode_segments_fresh` draws its boundaries with `make_boundary`, which only makes valid ones. |
+| src/body.mbt | 2 | Two arms of the multipart error mapping that cannot be reached: `InvalidBoundary`, since `encode_segments_fresh` and `encode_multipart` draw boundaries with `make_boundary`, which only makes valid ones; and `StreamPart`, since `encode_multipart` calls `encode_segments_fresh` only when every part is bytes. |

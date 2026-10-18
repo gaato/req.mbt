@@ -58,6 +58,8 @@ pub async fn Client::post(
   data? : Array[(String, String)],
   files? : Array[Part],
   json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
   timeout? : Int32,
 ) -> Response raise ReqError {
   self.request(
@@ -70,6 +72,8 @@ pub async fn Client::post(
     data?,
     files?,
     json?,
+    body_stream?,
+    body_length?,
     timeout?,
   )
 }
@@ -86,6 +90,8 @@ pub async fn Client::put(
   data? : Array[(String, String)],
   files? : Array[Part],
   json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
   timeout? : Int32,
 ) -> Response raise ReqError {
   self.request(
@@ -98,6 +104,8 @@ pub async fn Client::put(
     data?,
     files?,
     json?,
+    body_stream?,
+    body_length?,
     timeout?,
   )
 }
@@ -114,6 +122,8 @@ pub async fn Client::patch(
   data? : Array[(String, String)],
   files? : Array[Part],
   json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
   timeout? : Int32,
 ) -> Response raise ReqError {
   self.request(
@@ -126,6 +136,8 @@ pub async fn Client::patch(
     data?,
     files?,
     json?,
+    body_stream?,
+    body_length?,
     timeout?,
   )
 }

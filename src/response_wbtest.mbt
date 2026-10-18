@@ -69,7 +69,7 @@ test "raise_for_status returns 2xx responses and raises for every other status" 
 
 ///|
 fn with_content(content : Bytes) -> Response {
-  { ..sample_response(200), content, }
+  Response::new(200, sample_request(), content~)
 }
 
 ///|

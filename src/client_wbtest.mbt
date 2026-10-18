@@ -61,7 +61,7 @@ test "build: an explicit Content-Type wins over the body's" {
     assert_eq(request.http_method, "POST")
     assert_eq(request.headers.get("content-type"), case.1)
     assert_eq(request.headers.get_all("content-type").length(), 1)
-    assert_eq(request.body, b"null")
+    assert_eq(request.body, Bytes(b"null"))
   }
   let client = Client::new(transport~, headers=[("Content-Type", "text/csv")])
   let request = client.build("POST", "https://a.test/x", [], [], Text("a,b"))

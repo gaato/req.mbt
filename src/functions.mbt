@@ -23,6 +23,8 @@ pub async fn request(
   data? : Array[(String, String)],
   files? : Array[Part],
   json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
   timeout? : Int32,
 ) -> Response raise ReqError {
   let client = Client::new()
@@ -37,7 +39,46 @@ pub async fn request(
     data?,
     files?,
     json?,
+    body_stream?,
+    body_length?,
     timeout?,
+  )
+}
+
+///|
+/// Streams a response with a throw-away client, closed afterwards. The
+/// arguments are those of `Client::stream`.
+pub async fn[T] stream(
+  http_method : String,
+  url : String,
+  params~ : Array[(String, String)] = [],
+  headers~ : Array[(String, String)] = [],
+  content? : Bytes,
+  text? : String,
+  data? : Array[(String, String)],
+  files? : Array[Part],
+  json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
+  timeout? : Int32,
+  f : async (Response) -> T,
+) -> T {
+  let client = Client::new()
+  defer client.close()
+  client.stream(
+    http_method,
+    url,
+    params~,
+    headers~,
+    content?,
+    text?,
+    data?,
+    files?,
+    json?,
+    body_stream?,
+    body_length?,
+    timeout?,
+    f,
   )
 }
 
@@ -104,6 +145,8 @@ pub async fn post(
   data? : Array[(String, String)],
   files? : Array[Part],
   json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
   timeout? : Int32,
 ) -> Response raise ReqError {
   let client = Client::new()
@@ -117,6 +160,8 @@ pub async fn post(
     data?,
     files?,
     json?,
+    body_stream?,
+    body_length?,
     timeout?,
   )
 }
@@ -132,6 +177,8 @@ pub async fn put(
   data? : Array[(String, String)],
   files? : Array[Part],
   json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
   timeout? : Int32,
 ) -> Response raise ReqError {
   let client = Client::new()
@@ -145,6 +192,8 @@ pub async fn put(
     data?,
     files?,
     json?,
+    body_stream?,
+    body_length?,
     timeout?,
   )
 }
@@ -160,6 +209,8 @@ pub async fn patch(
   data? : Array[(String, String)],
   files? : Array[Part],
   json? : Json,
+  body_stream? : &@http.BodyStream,
+  body_length? : Int64,
   timeout? : Int32,
 ) -> Response raise ReqError {
   let client = Client::new()
@@ -173,6 +224,8 @@ pub async fn patch(
     data?,
     files?,
     json?,
+    body_stream?,
+    body_length?,
     timeout?,
   )
 }

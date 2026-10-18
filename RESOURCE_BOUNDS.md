@@ -21,7 +21,9 @@ which defaults this module sets on them.
 
 | Structure | Bound | On overflow | Tests |
 |---|---|---|---|
-| Buffered response body (`src/client.mbt`, `Client::new`, `max_body_bytes`, passed to `@adapter.AsyncTransport::new`) | 64 MiB by default (`default_max_body_bytes`), decoded bytes after gzip decoding; `max_body_bytes=None` lifts it. Enforced by the default transport (`http-async/src/transport.mbt`, `read_bounded`, tested there); a transport passed to `Client::new` sets its own | The transport refuses the chunk that crosses it and closes the connection; the call raises `ReqError::Protocol` | `src/client_wbtest.mbt`: "defaults: 30 s per exchange, 64 MiB per buffered body, a versioned User-Agent" |
+| Buffered response body (`src/client.mbt`, `Client::new`, `max_body_bytes`, passed to `@adapter.AsyncTransport::new`) | 64 MiB by default (`default_max_body_bytes`), decoded bytes after decoding; `max_body_bytes=None` lifts it. Enforced by the default transport (`http-async/src/transport.mbt`, `read_bounded`, tested there); a transport passed to `Client::new` sets its own | The transport refuses the chunk that crosses it and closes the connection; the call raises `ReqError::Protocol` | `src/client_wbtest.mbt`: "defaults: 30 s per exchange, 64 MiB per buffered body, a versioned User-Agent" |
+| A streamed body read into memory (`src/response.mbt`, `Response::read`) | The client's `max_body_bytes`, whatever the transport | The chunk that crosses it is not kept; the body is closed and `read` raises `ReqError::Protocol` | `src/stream_test.mbt`: "read buffers at most max_body_bytes and closes a larger body" |
+| Each read of a streamed body (`src/response.mbt`, `Response::next_chunk`) | The call's `timeout` per read, on the client's clock | The read is cancelled, the body closed, and the call raises `ReqError::Timeout(phase=Body)` | `src/stream_test.mbt`: "each read of a streamed body is bounded by the call's timeout" |
 | Exchange time (`src/client.mbt`, `Client::exchange`, `@adapter.with_timeout_opt` on the client's clock) | `timeout`, 30 s by default (`default_timeout`), per client and replaceable per call: the transport's `send`, from the request to the whole buffered response. The default transport's own deadline is set to `Int` max (`transport_ceiling_ms`) so it never cuts a longer call timeout short | The exchange is cancelled and the call raises `ReqError::Timeout` | `src/timing_test.mbt`: "an exchange times out after 30 s on the client's clock by default", "timeout is set per client and replaced per call"; `src/client_wbtest.mbt`: "defaults: 30 s per exchange, 64 MiB per buffered body, a versioned User-Agent" |
 
 ## Bounded by rate and lifetime
@@ -35,7 +37,8 @@ which defaults this module sets on them.
 
 | Structure | Grows with | Why it is not bounded here |
 |---|---|---|
-| Request bodies (`content`, `text`, `data`, `files`, `json`) | What the caller sends | The caller builds them in memory before the call |
+| Request bodies (`content`, `text`, `data`, `files`, `json`) | What the caller sends | The caller builds them in memory before the call; `body_stream` and stream parts are sent as they are read |
+| A streamed body taken with `read_some` or `each_chunk` | What the caller keeps | Each chunk is handed over and not kept by the response |
 | Time spent in steps and hooks | What a step does | `timeout` covers each exchange with the transport, not the caller's own code around it; a step that waits is the caller's policy |
 | A transport passed to `Client::new` | Its own buffers | Its owner sets its limits; `max_body_bytes` applies only to the default transport |
 

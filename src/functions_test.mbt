@@ -22,6 +22,14 @@ async test "top-level functions send through a throw-away client" {
     }
     assert_eq(outcome, url, msg="call \{i}")
   }
+  let streamed = try {
+    let _ : Int32 = @req.stream("GET", url, response => response.status)
+    "sent"
+  } catch {
+    @req.ReqError::UnsupportedProtocol(url=u) => u
+    error => "unexpected \{error}"
+  }
+  assert_eq(streamed, url)
 }
 
 ///|
