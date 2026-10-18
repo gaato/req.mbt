@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Runs the repository validation suite. Usage: scripts/gates.sh [--no-js] [--no-wasm]
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+targets=(native js wasm)
+for arg in "$@"; do
+  case "$arg" in
+    --no-js) targets=("${targets[@]/js}") ;;
+    --no-wasm) targets=("${targets[@]/wasm}") ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
+
+run() { echo "+ $*"; "$@"; }
+
+# CHANGELOG.md opens with [Unreleased].
+first_heading="$(grep -m1 '^## ' CHANGELOG.md || true)"
+if [ "$first_heading" != "## [Unreleased]" ]; then
+  echo "CHANGELOG.md: the first section must be [Unreleased], found: $first_heading" >&2
+  exit 1
+fi
+# The default User-Agent names the version in moon.mod.
+version="$(sed -nE 's/^version = "(.*)"$/\1/p' moon.mod)"
+grep -Fq "let user_agent : String = \"gaato-req/$version\"" src/client.mbt || {
+  echo "src/client.mbt: user_agent does not name version $version from moon.mod" >&2
+  exit 1
+}
+# Every enforced limit in RESOURCE_BOUNDS.md names tests that exist.
+run scripts/bounds_check.sh
+run moon update
+for t in "${targets[@]}"; do
+  [ -n "$t" ] || continue
+  run moon check --deny-warn --target "$t"
+  MOON_CC="${MOON_CC:-cc}" run timeout 300 moon test --target "$t"
+done
+run moon fmt --check
+run moon info
+# Only meaningful in CI: in a jj working copy `git diff` compares against the parent change,
+# so uncommitted edits would look stale. Set REQ_CHECK_MBTI=1 to enforce locally.
+if [ "${CI:-}" = true ] || [ "${REQ_CHECK_MBTI:-}" = 1 ]; then
+  git diff --exit-code -- '*.mbti' || { echo "pkg.generated.mbti is stale: run 'moon info' and commit" >&2; exit 1; }
+fi
+echo "gates: OK"
