@@ -7,6 +7,8 @@ never does. Every breaking change is listed with a migration note.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-19
+
 ### Changed
 
 - No longer depends on `gaato/sdk-runtime`: the multipart encoder, the
