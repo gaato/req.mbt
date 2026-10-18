@@ -5,8 +5,8 @@ import {
   "gaato/http",
   "gaato/http/clock",
   "gaato/http/cookie",
+  "gaato/http/multipart",
   "gaato/http/sse",
-  "gaato/sdk-runtime/multipart",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }

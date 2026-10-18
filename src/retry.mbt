@@ -97,7 +97,7 @@ fn Retry::delay_ms(
     Ok(response) =>
       response.headers
       .get("retry-after")
-      .bind(value => @runtime.parse_retry_after(value, now_unix_ms=now_ms))
+      .bind(value => @http.parse_retry_after(value, now_unix_ms=now_ms))
     Err(_) => None
   }
   match server {

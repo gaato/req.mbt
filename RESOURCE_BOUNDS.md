@@ -12,8 +12,8 @@ it, or pins a default the row states. `scripts/bounds_check.sh`, run by
 `scripts/gates.sh`, enforces the naming; whether a named test really reaches
 the bound is checked in review. The other tables are prose.
 
-Limits enforced by the lower layers (`gaato/http`, `gaato/http-async`,
-`gaato/sdk-runtime`) are listed in their own ledger,
+Limits enforced by the lower layers (`gaato/http`, `gaato/http-async`) are
+listed in their own ledger,
 https://github.com/gaato/mbt-sdk/blob/main/RESOURCE_BOUNDS.md; rows here say
 which defaults this module sets on them.
 

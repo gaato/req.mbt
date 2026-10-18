@@ -127,7 +127,7 @@ pub fn Client::new(
   trust_env~ : Bool = true,
 ) -> Client {
   let defaults = @http.Headers::from_array([("user-agent", user_agent)])
-  let random = random.unwrap_or(@runtime.default_random)
+  let random = random.unwrap_or(@random.default_random)
   let (transport, owned) = match transport {
     Some(transport) => (transport, None)
     None => {

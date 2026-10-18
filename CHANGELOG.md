@@ -7,6 +7,13 @@ never does. Every breaking change is listed with a migration note.
 
 ## [Unreleased]
 
+### Changed
+
+- No longer depends on `gaato/sdk-runtime`: the multipart encoder, the
+  boundary's random source and `Retry-After` parsing come from `gaato/http`
+  0.3.1 (`gaato/http/multipart`, `gaato/http/random`), where they moved.
+  `Part` is the same type as before, so the public API is unchanged.
+
 ## [0.1.0] - 2026-10-18
 
 ### Added

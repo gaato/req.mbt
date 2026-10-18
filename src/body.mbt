@@ -109,7 +109,7 @@ fn encode_multipart(
     )
     (content_type, Bytes(@multipart.join_segments(segments)))
   } else {
-    let random = random.unwrap_or(@runtime.default_random)
+    let random = random.unwrap_or(@random.default_random)
     @multipart.encode_body(parts, @multipart.make_boundary(random))
   }
 }

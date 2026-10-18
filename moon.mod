@@ -1,6 +1,6 @@
 // The human-facing entry point of the gaato HTTP stack: depends on
-// gaato/http-async so `Client::new()` needs no setup, and on gaato/http and
-// gaato/sdk-runtime for the vocabulary and the multipart encoder.
+// gaato/http-async so `Client::new()` needs no setup, and on gaato/http for
+// the vocabulary and the multipart encoder.
 
 name = "gaato/requesto"
 
@@ -21,9 +21,8 @@ source = "src"
 preferred_target = "native"
 
 import {
-  "gaato/http@0.3.0",
+  "gaato/http@0.3.1",
   "gaato/http-async@0.3.0",
-  "gaato/sdk-runtime@0.4.0",
   "moonbitlang/async@0.22.5",
   "moonbitlang/x@0.5.5",
 }
