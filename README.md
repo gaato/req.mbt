@@ -36,16 +36,16 @@ async fn example() -> Unit raise {
 
 - `get`, `post`, `put`, `patch`, `delete`, `head`, `options` and `request`, on a `Client` or as top-level functions.
 - Client defaults: `base_url` (always appended to), `headers`, `params` (merged into any query already in the URL), `auth` (`Basic`, `Bearer`, `Digest`), `timeout`, `retry`.
-- Retries by default: idempotent methods on 408, 429, 500, 502, 503, 504 and transport failures, any method when nothing was sent; `Retry-After` up to 60 s, else backoff with jitter. `retry=Retry::none()` turns them off.
+- Retries by default: idempotent methods on 408, 429, 500, 502, 503, 504 and transport failures, any method when nothing was sent; `Retry-After` up to 60 s, else backoff with jitter. A wait the client will not make (longer than 60 s, or than `total_timeout` has left) returns the response as it is; `response.retries` counts the sends after the first. `retry=Retry::none()` turns them off.
 - One body per call: `content` (bytes), `text`, `data` (form), `files` (multipart, `@requesto.Part`), `json` or `body_stream`.
 - A response is a value whatever its status; `raise_for_status()` turns non-2xx into `RequestoError::Status`.
 - Redirects followed (at most 10, credentials dropped across origins, no `https` to `http`), with `history`; `follow_redirects=false` per client or call.
 - Cookies kept per client in an RFC 6265 jar, `client.cookies()`; `cookies=Jar(jar)` shares one, `cookies=Off` keeps none.
 - Streaming both ways: `stream` hands over the response while its body is still arriving (`read_some`, `each_chunk`, `each_line`); `body_stream` and `Part::file_stream` send a body as it is read.
-- Server-sent events: `client.sse("GET", url, event => ...)`, or `each_event` on a streamed response.
+- Server-sent events: `client.sse("GET", url, event => ...)`, or `each_event` on a streamed response. After the head, `sse` waits up to `idle_timeout` (5 minutes) for the next bytes; a client's `read_timeout` bounds those reads too.
 - URLs checked and normalised before sending; `@requesto.Url` takes response URLs apart and resolves links.
-- Timeouts per call and per phase (`connect_timeout`, `write_timeout`, `read_timeout`, `pool_timeout`), `proxy` (or `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`), and connection limits (`max_connections`, `max_connections_per_origin`).
-- Bounded by default: 30 s per exchange, 64 MiB per buffered body, 16 MiB per event or line.
+- Timeouts per call, in all (`total_timeout`) and per phase (`connect_timeout`, `write_timeout`, `read_timeout`, `pool_timeout`), `proxy` (or `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`), and connection limits (`max_connections`, `max_connections_per_origin`).
+- Bounded by default: 30 s per exchange, `max_retries + 2` exchanges' worth (150 s) per call with its redirects and retries, 64 MiB per buffered body, 16 MiB per event or line.
 - `steps`, links of the chain around the transport, with `on_request` and `on_response` hooks.
 - Tests swap the transport for `MockTransport::new(request => response)` and the clock for `VirtualClock` from `gaato/http-async/mock`.
 
@@ -64,7 +64,7 @@ Not yet: HTTP/2, response caching. On JS, `fetch` follows redirects before the c
 | Cookies | `client.cookies` | the browser's | — | `client.cookies()`, `cookies=Jar(jar)` |
 | Streaming | `client.stream(...)`, `iter_lines()` | `responseType: 'stream'` | `into: fun` | `client.stream(...)`, `each_line` |
 | SSE | `httpx_sse.connect_sse` | `EventSource` | — | `client.sse(...)`, `each_event` |
-| Timeouts | `httpx.Timeout(connect=...)` | `timeout` | `receive_timeout:` | `timeout=`, `connect_timeout=`, ... |
+| Timeouts | `httpx.Timeout(connect=...)` | `timeout`, `totalTimeout` (ky) | `receive_timeout:` | `timeout=`, `total_timeout=`, `connect_timeout=`, ... |
 | Proxy | `proxy=` | `proxy` (axios) | `connect_options:` | `proxy=`, `trust_env` |
 | Hooks | `event_hooks` | interceptors / hooks | steps | `steps=[on_request(...), ...]` |
 | Retries | `HTTPAdapter(max_retries=Retry(...))` (off) | `retry` (ky, on) | `retry: :safe_transient` (on) | `retry=Retry::new(...)` (on) |

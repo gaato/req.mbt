@@ -350,3 +350,43 @@ async test "json on an unread or consumed stream says so, not that it is malform
   assert_eq(unread, "ResponseNotRead")
   assert_eq(consumed, "StreamConsumed")
 }
+
+///|
+async test "total_timeout covers a streamed call up to its head, not its body" {
+  let clock = @simclock.VirtualClock()
+  let body = Fed::new()
+  let client = @requesto.Client::new(
+    transport=FedTransport::{ body, buffered: b"", },
+    clock~,
+    timeout=1000,
+    total_timeout=Some(100),
+  )
+  @async.with_task_group(group => {
+    let outcome : Ref[String?] = Ref(None)
+    group.spawn_bg(() => {
+      outcome.val = Some(
+        try
+          client.stream("GET", "https://a.test/", response => {
+            response.each_chunk(_ => ())
+          })
+        catch {
+          error => variant(error)
+        } noraise {
+          _ => "ended"
+        },
+      )
+    })
+    for _ in 0..<3 {
+      clock.advance(900)
+      body.queue.put(Some(b"x"))
+    }
+    body.queue.put(None)
+    clock.settle()
+    assert_eq(
+      outcome.val,
+      Some("ended"),
+      msg="2.7 s of body after a 100 ms total",
+    )
+    assert_eq(clock.pending(), [])
+  })
+}

@@ -147,13 +147,16 @@ fn full_jitter(
 }
 
 ///|
-/// The step that sends a request again as `retry` says, waiting on `clock`.
-/// Each send gets its own copy of the headers, so later steps start from the
-/// same request every time; a response that is not kept is closed.
+/// The step that sends a request again as `retry` says, waiting on `clock`,
+/// but never past `deadline`: a wait that would end at or after it is not
+/// waited for. Each send gets its own copy of the headers, so later steps
+/// start from the same request every time; a response that is not kept is
+/// closed. The response returned counts the retries in `retries`.
 fn retry_step(
   retry : Retry,
   clock : &@clock.Clock,
   random : () -> Double,
+  deadline : Int64?,
 ) -> Step {
   (request, next) => {
     for retries = 0 {
@@ -163,16 +166,16 @@ fn retry_step(
       } noraise {
         response => Ok(response)
       }
-      let delay = retry.delay_ms(
-        request,
-        outcome,
-        retries,
-        clock.now_unix_ms(),
-        random(),
-      )
+      let now = clock.now_unix_ms()
+      let delay = retry
+        .delay_ms(request, outcome, retries, now, random())
+        .filter(delay => {
+          deadline is None || now + delay.to_int64() < deadline.unwrap()
+        })
       guard delay is Some(delay) else {
         match outcome {
-          Ok(response) => return response
+          Ok(response) if retries == 0 => return response
+          Ok(response) => return { ..response, retries, }
           Err(error) => raise error
         }
       }

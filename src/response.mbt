@@ -29,6 +29,14 @@ pub struct Response {
   /// whole response, or its head for a streamed response, measured on the
   /// client's clock.
   elapsed : Int32
+  /// How many times the request was sent again before this response came,
+  /// on its last hop: 0 unless the client's `retry` resent it. When the
+  /// request is one `retry` sends again (its method is in `methods` and its
+  /// body is not a stream already sent), a response with a status in
+  /// `statuses` and fewer retries than `max_retries` is one the client
+  /// chose not to wait for: the wait was longer than `max_retry_after` or
+  /// than what `total_timeout` had left.
+  retries : Int32
   priv body : ResponseBody
 }
 
@@ -55,8 +63,9 @@ priv struct ResponseBody {
   max_bytes : Int32?
   /// Bounds each read from the connection.
   clock : &@clock.Clock
-  /// Milliseconds each read from the connection may take.
-  timeout : Int32
+  /// Milliseconds each read from the connection may take, or `None` for no
+  /// bound; `each_event` can replace it.
+  mut timeout : Int32?
 }
 
 ///|
@@ -78,6 +87,7 @@ pub fn Response::new(
   url? : String,
   history~ : Array[Response] = [],
   elapsed~ : Int32 = 0,
+  retries~ : Int32 = 0,
 ) -> Response {
   {
     status,
@@ -86,6 +96,7 @@ pub fn Response::new(
     request,
     history,
     elapsed,
+    retries,
     body: buffered_body(content),
   }
 }
@@ -98,7 +109,7 @@ fn buffered_body(content : Bytes) -> ResponseBody {
     closed: false,
     max_bytes: None,
     clock: @adapter.AsyncClock::new(),
-    timeout: 0,
+    timeout: None,
   }
 }
 
@@ -176,7 +187,8 @@ pub async fn Response::read(self : Response) -> Bytes raise RequestoError {
 ///|
 /// The next chunk of the body, or `None` at its end. A body in memory comes
 /// as one chunk. Each read from the connection is bounded by the call's
-/// `timeout`. After `close`, raises `StreamConsumed`.
+/// `timeout`, or by the `idle_timeout` of `each_event`. After `close`,
+/// raises `StreamConsumed`.
 pub async fn Response::read_some(self : Response) -> Bytes? raise RequestoError {
   match self.body.state {
     Buffered(content, delivered~) => {
@@ -262,9 +274,13 @@ async fn Response::next_chunk(
   stream : &@http.BodyStream,
 ) -> Bytes? raise RequestoError {
   let body = self.body
-  let chunk = @adapter.with_timeout_opt(body.clock, body.timeout, () => {
-    stream.read_some()
-  }) catch {
+  let chunk = try {
+    match body.timeout {
+      Some(timeout) =>
+        @adapter.with_timeout_opt(body.clock, timeout, () => stream.read_some())
+      None => Some(stream.read_some())
+    }
+  } catch {
     error => {
       self.close()
       raise map_transport_error(error, self.request)
@@ -273,7 +289,11 @@ async fn Response::next_chunk(
   match chunk {
     None => {
       self.close()
-      raise Timeout(request=self.request, phase=Body, timeout=body.timeout)
+      raise Timeout(
+        request=self.request,
+        phase=Body,
+        timeout=body.timeout.unwrap_or(0),
+      )
     }
     Some(None) => {
       body.state = Ended

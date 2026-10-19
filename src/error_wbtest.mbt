@@ -56,6 +56,13 @@ test "errors print one line without headers and fall into groups" {
       false,
     ),
     (
+      TotalTimeout(request~, timeout=150000),
+      "GET https://a.test/x: the call did not finish within 150000 ms",
+      true,
+      false,
+      false,
+    ),
+    (
       Timeout(request~, phase=Pool, timeout=100),
       "GET https://a.test/x: timed out after 100 ms waiting for a connection",
       true,
@@ -195,6 +202,7 @@ test "error debug output names the request and the response status" {
   let request = sample_request()
   let cases : Array[(RequestoError, String)] = [
     (Timeout(request~, phase=Head, timeout=5), "Timeout"),
+    (TotalTimeout(request~, timeout=5), "TotalTimeout"),
     (Network(request~, phase=Dial, message="m"), "Network"),
     (Protocol(request~, message="m"), "Protocol"),
     (Proxy(request~, status=403, message="m"), "Proxy"),

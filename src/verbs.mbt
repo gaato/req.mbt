@@ -6,6 +6,7 @@ pub async fn Client::get(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -15,6 +16,7 @@ pub async fn Client::get(
     params~,
     headers~,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -28,6 +30,7 @@ pub async fn Client::head(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -37,6 +40,7 @@ pub async fn Client::head(
     params~,
     headers~,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -50,6 +54,7 @@ pub async fn Client::options(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -59,6 +64,7 @@ pub async fn Client::options(
     params~,
     headers~,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -72,6 +78,7 @@ pub async fn Client::delete(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -81,6 +88,7 @@ pub async fn Client::delete(
     params~,
     headers~,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -101,6 +109,7 @@ pub async fn Client::post(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -117,6 +126,7 @@ pub async fn Client::post(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -137,6 +147,7 @@ pub async fn Client::put(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -153,6 +164,7 @@ pub async fn Client::put(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -173,6 +185,7 @@ pub async fn Client::patch(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -189,6 +202,7 @@ pub async fn Client::patch(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )

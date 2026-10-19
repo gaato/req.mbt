@@ -39,7 +39,7 @@ ledger OK, 1 = an unexplained or over-budget file, 2 = the run itself failed
 - moon's bundled tcc cannot link on some hosts (openSUSE); the script sets
   `MOON_CC=cc` unless it is already set.
 
-Snapshot at the last full measurement (2026-10-18): **99.7 %** (718/720
+Snapshot at the last full measurement (2026-10-19): **99.6 %** (751/754
 lines).
 
 ## Policy
@@ -66,4 +66,5 @@ Budgets are exact uncovered counts at the last measurement.
 
 | File | Budget | Reason |
 | --- | --- | --- |
+| src/client.mbt | 1 | The `catch` of `Client::within_total`: `f`'s failures come back as values, so `with_timeout_opt` raises only when the call's own task is cancelled, and a cancelled caller cannot observe what the call raises. |
 | src/body.mbt | 2 | Two arms of the multipart error mapping that cannot be reached: `InvalidBoundary`, since `encode_segments_fresh` and `encode_multipart` draw boundaries with `make_boundary`, which only makes valid ones; and `StreamPart`, since `encode_multipart` calls `encode_segments_fresh` only when every part is bytes. |

@@ -9,7 +9,34 @@ never does. Every breaking change is listed with a migration note.
 
 ## [0.2.0] - 2026-10-19
 
+### Added
+
+- **`total_timeout` bounds a whole call**: its steps, redirects, retries
+  and the waits between them, up to the whole response or, for `stream`
+  and `sse`, the response's head. Set per client or per call; unset, it is
+  `(max_retries + 2) * timeout`, 150 s by default, so it follows a raised
+  `timeout`; `total_timeout=None` lifts it. When it runs out the call
+  raises the new `RequestoError::TotalTimeout`, which is never retried,
+  and a retry whose wait would not fit is not waited for: the last
+  response is returned or the last failure raised.
+- **`sse` waits up to `idle_timeout` for the next bytes**, 5 minutes by
+  default (`None` for no bound), instead of the call's `timeout`, which
+  now bounds only the exchange up to the head. `Response::each_event`
+  takes `idle_timeout` too; without it, a streamed response keeps the
+  call's `timeout` per read.
+- **`Response.retries`** counts the sends after the first on the final
+  hop. For a request `retry` would send again, a status in `statuses`
+  with fewer retries than `max_retries` is one the client chose not to
+  wait for.
+
 ### Changed
+
+- **`RequestoError` has a new variant, `TotalTimeout`.** `is_timeout()` is
+  true for it; `is_transport_error()` and `is_unsent()` are false.
+  Migration: an exhaustive `match` on `RequestoError` needs an arm for it.
+- **A call can now end sooner than its retries would have taken**: with
+  the default retries and `timeout`, at 150 s. Migration: pass
+  `total_timeout=None` for the previous behaviour, or a larger value.
 
 - **`Auth` is `#non_exhaustive`.** Another credential scheme can then be
   added without breaking matches in your code. Migration: a `match` on

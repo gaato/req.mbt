@@ -26,6 +26,9 @@ pub struct Client {
   priv headers : @http.Headers
   priv params : Array[(String, String)]
   priv timeout : Int32
+  /// `None` to derive it from `timeout` and `retry`; `Some(None)` for no
+  /// bound.
+  priv total_timeout : Int32??
   priv max_body_bytes : Int32?
   priv steps : Array[Step]
   priv follow_redirects : Bool
@@ -51,6 +54,13 @@ pub struct Client {
 /// - `timeout`: milliseconds one exchange may take, 30 s by default: up to
 ///   the whole response, or for a streamed one up to its head and then each
 ///   read of its body.
+/// - `total_timeout`: milliseconds a whole call may take, its redirects,
+///   retries and the waits between them included, up to the whole response
+///   or a streamed one's head. Unset, it is `max_retries + 2` times the
+///   call's `timeout`: one for each send `retry` allows and one for the
+///   waits and redirects between them, 2.5 minutes by default. Raising
+///   `timeout` raises it too, and a single send's own `timeout` always runs
+///   out first; `None` lifts it.
 /// - `max_body_bytes`: the largest body buffered, 64 MiB by default, counted
 ///   after decoding; `None` lifts it. The default transport applies it to
 ///   each call; `Response::read` applies it to a streamed body.
@@ -107,6 +117,7 @@ pub fn Client::new(
   params~ : Array[(String, String)] = [],
   auth? : Auth,
   timeout~ : Int32 = default_timeout,
+  total_timeout? : Int32?,
   max_body_bytes~ : Int32? = Some(default_max_body_bytes),
   steps~ : Array[Step] = [],
   follow_redirects~ : Bool = true,
@@ -153,6 +164,7 @@ pub fn Client::new(
     headers: merge_headers(defaults, headers),
     params: [..params],
     timeout,
+    total_timeout,
     max_body_bytes,
     steps: [..steps],
     retry,
@@ -209,7 +221,12 @@ pub fn Client::cookies(self : Client) -> CookieJar? {
 ///   headers wins over the implied one. A body that streams, including
 ///   files made with `Part::file_stream`, is sent at most once: retries and
 ///   redirects that would send it again stop instead.
-/// - `timeout` and `retry` replace the client's for this call.
+/// - `timeout`, `total_timeout` and `retry` replace the client's for this
+///   call. A call that sets `timeout` but not `total_timeout`, on a client
+///   that sets none, derives its total from its own `timeout`. When the
+///   total runs out, the call raises `TotalTimeout`; a retry whose wait
+///   would not fit in what is left is not waited for, and the last response
+///   is returned or the last failure raised.
 /// - `follow_redirects` replaces the client's for this call. The response
 ///   carries the redirects followed in `history` and the final URL in `url`.
 pub async fn Client::request(
@@ -226,6 +243,7 @@ pub async fn Client::request(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -245,11 +263,15 @@ pub async fn Client::request(
     ),
   )
   let timeout = timeout.unwrap_or(self.timeout)
-  run_steps(
-    self.chain(request, retry.unwrap_or(self.retry), follow_redirects),
-    request => self.exchange(request, timeout, stream=false),
-    request,
-  )
+  let retry = retry.unwrap_or(self.retry)
+  let total = self.total_budget(total_timeout, timeout, retry)
+  self.within_total(request, total, deadline => {
+    run_steps(
+      self.chain(request, retry, follow_redirects, deadline),
+      request => self.exchange(request, timeout, stream=false),
+      request,
+    )
+  })
 }
 
 ///|
@@ -292,6 +314,7 @@ pub async fn[T] Client::stream(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
   f : async (Response) -> T,
@@ -312,21 +335,85 @@ pub async fn[T] Client::stream(
     ),
   )
   let timeout = timeout.unwrap_or(self.timeout)
+  let retry = retry.unwrap_or(self.retry)
+  let total = self.total_budget(total_timeout, timeout, retry)
   // Every response opened during the call is closed when it ends, so a
   // step that raises after `next`, or drops a response it replaced, cannot
   // leave a connection behind.
   let opened : Array[Response] = []
   defer opened.each(response => response.close())
-  let response = run_steps(
-    self.chain(request, retry.unwrap_or(self.retry), follow_redirects),
-    request => {
-      let response = self.exchange(request, timeout, stream=true)
-      opened.push(response)
-      response
-    },
-    request,
-  )
+  // The total covers the response's head; reading the body is bounded per
+  // read instead, as `f` may read for as long as the stream lasts.
+  let response = self.within_total(request, total, deadline => {
+    run_steps(
+      self.chain(request, retry, follow_redirects, deadline),
+      request => {
+        let response = self.exchange(request, timeout, stream=true)
+        opened.push(response)
+        response
+      },
+      request,
+    )
+  })
   f(response)
+}
+
+///|
+/// The milliseconds a call may take in all, or `None` for no bound: the
+/// call's `total_timeout`, else the client's, else `max_retries + 2`
+/// exchanges of the call's `timeout`: one per send, and one for the waits
+/// and redirects between them, so that a call sent once times out on its
+/// own `timeout`, with its phase, before the total.
+fn Client::total_budget(
+  self : Client,
+  total_timeout : Int32??,
+  timeout : Int32,
+  retry : Retry,
+) -> Int32? {
+  let set = if total_timeout is Some(_) {
+    total_timeout
+  } else {
+    self.total_timeout
+  }
+  match set {
+    Some(total) => total
+    None => {
+      let ms = (retry.max_retries.to_int64() + 2L) * timeout.to_int64()
+      Some(if ms > max_int32 { transport_ceiling_ms } else { ms.to_int() })
+    }
+  }
+}
+
+///|
+/// `Int32` max, as an `Int64`.
+let max_int32 : Int64 = 2_147_483_647L
+
+///|
+/// Runs `f` within `total` milliseconds on the client's clock, raising
+/// `TotalTimeout` for `request` when they run out; `f` gets the deadline,
+/// in milliseconds on that clock, or `None` without a bound.
+async fn[T] Client::within_total(
+  self : Client,
+  request : Request,
+  total : Int32?,
+  f : async (Int64?) -> T raise RequestoError,
+) -> T raise RequestoError {
+  guard total is Some(ms) else { return f(None) }
+  let deadline = self.clock.now_unix_ms() + ms.to_int64()
+  let outcome = @adapter.with_timeout_opt(self.clock, ms, () => {
+    try f(Some(deadline)) catch {
+      error => Err(error)
+    } noraise {
+      value => Ok(value)
+    }
+  }) catch {
+    error => raise map_transport_error(error, request)
+  }
+  match outcome {
+    Some(Ok(value)) => value
+    Some(Err(error)) => raise error
+    None => raise TotalTimeout(request~, timeout=ms)
+  }
 }
 
 ///|
@@ -341,12 +428,13 @@ fn Client::chain(
   request : Request,
   retry : Retry,
   follow_redirects : Bool?,
+  deadline : Int64?,
 ) -> Array[Step] {
   let chain = [..self.steps]
   if follow_redirects.unwrap_or(self.follow_redirects) {
     chain.push(redirect_step(self.max_redirects))
   }
-  chain.push(retry_step(retry, self.clock, self.random))
+  chain.push(retry_step(retry, self.clock, self.random, deadline))
   if self.auth is Some(auth) {
     chain.push(same_origin_only(request.url, auth))
   }
@@ -431,12 +519,13 @@ async fn Client::exchange(
     request,
     history: [],
     elapsed: (self.clock.now_unix_ms() - started).to_int(),
+    retries: 0,
     body: {
       state,
       closed: false,
       max_bytes: self.max_body_bytes,
       clock: self.clock,
-      timeout,
+      timeout: Some(timeout),
     },
   }
 }

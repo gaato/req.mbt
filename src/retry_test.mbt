@@ -117,6 +117,7 @@ async test "a Retry-After beyond max_retry_after keeps the response" {
       client.get(
         "https://a.test/",
         retry=@requesto.Retry::new(max_retries=1, max_retry_after=120_000),
+        total_timeout=None,
       )
     })
     clock.advance(119_999)
@@ -356,4 +357,43 @@ async test "a POST answered with a redirect is not sent again when the next hop 
   assert_eq(sent.map(request => request.http_method + " " + request.url), [
     "POST https://a.test/order", "GET https://b.test/done", "GET https://b.test/done",
   ])
+}
+
+///|
+async test "a wait that does not fit in total_timeout is not waited for" {
+  let clock = @simclock.VirtualClock()
+  let sent = []
+  let client = @requesto.Client::new(
+    transport=scripted(sent, [Status(503, [("Retry-After", "5")])]),
+    clock~,
+    total_timeout=Some(12_000),
+  )
+  @async.with_task_group(group => {
+    let response : Ref[@requesto.Response?] = Ref(None)
+    group.spawn_bg(() => response.val = Some(client.get("https://a.test/")))
+    clock.advance(10_000)
+    assert_eq(sent.length(), 3, msg="sent at 0, 5 s and 10 s")
+    let response = response.val.unwrap()
+    assert_eq(response.status, 503, msg="15 s is past the 12 s total")
+    assert_eq(response.retries, 2)
+    assert_eq(clock.pending(), [])
+  })
+}
+
+///|
+async test "retries counts the sends after the first on the final hop" {
+  let sent = []
+  let client = @requesto.Client::new(
+    transport=scripted(sent, [
+      Status(503, [("Retry-After", "0")]),
+      Status(200, []),
+    ]),
+    clock=@simclock.VirtualClock(),
+  )
+  assert_eq(client.get("https://a.test/").retries, 1)
+  let once = @requesto.Client::new(
+    transport=scripted([], [Status(200, [])]),
+    clock=@simclock.VirtualClock(),
+  )
+  assert_eq(once.get("https://a.test/").retries, 0)
 }

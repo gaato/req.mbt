@@ -6,6 +6,10 @@ pub(all) suberror RequestoError {
   /// the transport's per-phase limits, or `Unknown` for the call's
   /// `timeout`, which spans the phases.
   Timeout(request~ : Request, phase~ : Phase, timeout~ : Int32)
+  /// The call's `total_timeout` of `timeout` milliseconds ran out, across
+  /// its redirects, retries and the waits between them; `request` is the
+  /// call's first request. It is never retried.
+  TotalTimeout(request~ : Request, timeout~ : Int32)
   /// The connection could not be made (`Dial`) or failed after it was made,
   /// in `phase`.
   Network(request~ : Request, phase~ : Phase, message~ : String)
@@ -57,6 +61,11 @@ pub impl @debug.Debug for RequestoError with fn to_repr(self) {
       @debug.Repr::ctor("Timeout", [
         (Some("request"), request(r)),
         (Some("phase"), @debug.Repr::Repr(phase)),
+        (Some("timeout"), @debug.Repr::Repr(timeout)),
+      ])
+    TotalTimeout(request=r, timeout~) =>
+      @debug.Repr::ctor("TotalTimeout", [
+        (Some("request"), request(r)),
         (Some("timeout"), @debug.Repr::Repr(timeout)),
       ])
     Network(request=r, phase~, message~) =>
@@ -126,6 +135,8 @@ pub impl Show for RequestoError with fn output(self, logger) {
   let message = match self {
     Timeout(request~, phase~, timeout~) =>
       "\{target(request)}: timed out after \{timeout} ms\{phase_suffix(phase)}"
+    TotalTimeout(request~, timeout~) =>
+      "\{target(request)}: the call did not finish within \{timeout} ms"
     Network(request~, phase~, message~) =>
       "\{target(request)}: network error\{phase_suffix(phase)}: \{message}"
     Protocol(request~, message~) =>
@@ -152,9 +163,9 @@ pub impl Show for RequestoError with fn output(self, logger) {
 }
 
 ///|
-/// Whether a time limit ran out.
+/// Whether a time limit ran out: `Timeout` or `TotalTimeout`.
 pub fn RequestoError::is_timeout(self : RequestoError) -> Bool {
-  self is Timeout(..)
+  self is (Timeout(..) | TotalTimeout(..))
 }
 
 ///|
@@ -167,7 +178,8 @@ pub fn RequestoError::is_transport_error(self : RequestoError) -> Bool {
     | Protocol(..)
     | Proxy(..)
     | UnsupportedProtocol(..) => true
-    TooManyRedirects(..)
+    TotalTimeout(..)
+    | TooManyRedirects(..)
     | InvalidRedirect(..)
     | ResponseNotRead(..)
     | StreamConsumed(..)

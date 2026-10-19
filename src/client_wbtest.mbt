@@ -5,6 +5,17 @@ test "defaults: 30 s per exchange, 64 MiB per buffered body, a versioned User-Ag
   assert_eq(user_agent, "requesto/0.2.0")
   let client = Client::new()
   assert_eq(client.timeout, 30_000)
+  assert_true(client.total_timeout is None, msg="derived per call")
+  assert_eq(client.total_budget(None, 30_000, Retry::new()), Some(150_000))
+  assert_eq(client.total_budget(None, 30_000, Retry::none()), Some(60_000))
+  assert_eq(client.total_budget(None, 600_000, Retry::new()), Some(3_000_000))
+  assert_eq(
+    client.total_budget(None, transport_ceiling_ms, Retry::new()),
+    Some(transport_ceiling_ms),
+    msg="capped at Int32 max",
+  )
+  assert_eq(client.total_budget(Some(None), 30_000, Retry::new()), None)
+  assert_eq(default_idle_timeout, 300_000)
   assert_true(client.owned is Some(_))
   assert_eq(client.headers.get("user-agent"), Some(user_agent))
   client.close()

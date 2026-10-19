@@ -1,4 +1,9 @@
 ///|
+/// How long `sse` waits for the next bytes of a stream unless told
+/// otherwise: 5 minutes.
+let default_idle_timeout : Int32 = 300_000
+
+///|
 /// One server-sent event: `@sse.SseEvent` of gaato/http, with its `event`
 /// type (`"message"` unless the stream names one), its `data` lines joined
 /// with `\n`, the last `id` the stream set, and the `retry` delay it asked
@@ -55,9 +60,10 @@ fn Response::parse_events(
 /// Raises `Decoding` without reading when the response's `Content-Type` is
 /// not `text/event-stream`, such as an error page. An event larger than
 /// `max_event_bytes` (16 MiB by default) closes the body and raises
-/// `Protocol`, after the events before it. Each read waits at most the
-/// call's `timeout`, so a stream that stays silent longer needs a longer
-/// one.
+/// `Protocol`, after the events before it. Each read waits at most
+/// `idle_timeout` milliseconds when it is given (`None` for no bound), else
+/// the call's `timeout`; the transport's own `read_timeout`, when the client
+/// sets one, applies as well.
 ///
 /// ```mbt check
 /// async test {
@@ -79,7 +85,11 @@ pub async fn Response::each_event(
   self : Response,
   f : async (SseEvent) -> Unit,
   max_event_bytes? : Int32,
+  idle_timeout? : Int32?,
 ) -> Unit {
+  if idle_timeout is Some(timeout) {
+    self.body.timeout = timeout
+  }
   let content_type = self.headers.get("content-type")
   guard is_event_stream(content_type) else {
     raise Decoding(
@@ -112,6 +122,12 @@ pub async fn Response::each_event(
 /// body as `max_body_bytes` lets it read; 204 No Content, a server's way to
 /// say there are no events, returns at once. Otherwise the body is read as
 /// `Response::each_event` reads it.
+///
+/// `timeout` and `total_timeout` bound the call up to the response's head.
+/// After it, each read waits at most `idle_timeout`, 5 minutes by default,
+/// for the next bytes, twenty times the 15 s between keep-alive comments
+/// the HTML standard suggests to servers; `None` waits as long as the
+/// stream stays open. A client's `read_timeout` bounds those reads too.
 ///
 /// There is no reconnection: when the stream ends, so does the call. To
 /// resume, call again with a `Last-Event-ID` header holding the last
@@ -146,6 +162,8 @@ pub async fn Client::sse(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
+  idle_timeout~ : Int32? = Some(default_idle_timeout),
   max_event_bytes? : Int32,
   f : async (SseEvent) -> Unit,
 ) -> Unit {
@@ -166,6 +184,7 @@ pub async fn Client::sse(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     response => {
       if response.status == 204 {
         return
@@ -178,7 +197,7 @@ pub async fn Client::sse(
         }
         raise Status(request=response.request, response~)
       }
-      response.each_event(f, max_event_bytes?)
+      response.each_event(f, max_event_bytes?, idle_timeout~)
     },
   )
 }
@@ -199,6 +218,8 @@ pub async fn sse(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
+  idle_timeout~ : Int32? = Some(default_idle_timeout),
   max_event_bytes? : Int32,
   f : async (SseEvent) -> Unit,
 ) -> Unit {
@@ -217,6 +238,8 @@ pub async fn sse(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
+    idle_timeout~,
     max_event_bytes?,
     f,
   )

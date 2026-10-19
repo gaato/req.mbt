@@ -26,6 +26,7 @@ pub async fn request(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -44,6 +45,7 @@ pub async fn request(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -65,6 +67,7 @@ pub async fn[T] stream(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
   f : async (Response) -> T,
@@ -84,6 +87,7 @@ pub async fn[T] stream(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
     f,
@@ -97,12 +101,21 @@ pub async fn get(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
-  client.get(url, params~, headers~, timeout?, follow_redirects?, retry?)
+  client.get(
+    url,
+    params~,
+    headers~,
+    timeout?,
+    total_timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -112,12 +125,21 @@ pub async fn head(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
-  client.head(url, params~, headers~, timeout?, follow_redirects?, retry?)
+  client.head(
+    url,
+    params~,
+    headers~,
+    timeout?,
+    total_timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -127,12 +149,21 @@ pub async fn options(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
-  client.options(url, params~, headers~, timeout?, follow_redirects?, retry?)
+  client.options(
+    url,
+    params~,
+    headers~,
+    timeout?,
+    total_timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -142,12 +173,21 @@ pub async fn delete(
   params~ : Array[(String, String)] = [],
   headers~ : Array[(String, String)] = [],
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
   let client = Client::new()
   defer client.close()
-  client.delete(url, params~, headers~, timeout?, follow_redirects?, retry?)
+  client.delete(
+    url,
+    params~,
+    headers~,
+    timeout?,
+    total_timeout?,
+    follow_redirects?,
+    retry?,
+  )
 }
 
 ///|
@@ -164,6 +204,7 @@ pub async fn post(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -181,6 +222,7 @@ pub async fn post(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -200,6 +242,7 @@ pub async fn put(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -217,6 +260,7 @@ pub async fn put(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )
@@ -236,6 +280,7 @@ pub async fn patch(
   body_stream? : &@http.BodyStream,
   body_length? : Int64,
   timeout? : Int32,
+  total_timeout? : Int32?,
   follow_redirects? : Bool,
   retry? : Retry,
 ) -> Response raise RequestoError {
@@ -253,6 +298,7 @@ pub async fn patch(
     body_stream?,
     body_length?,
     timeout?,
+    total_timeout?,
     follow_redirects?,
     retry?,
   )

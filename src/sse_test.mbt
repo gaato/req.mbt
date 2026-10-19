@@ -361,3 +361,135 @@ async test "close in a callback stops each_line and each_event on a buffered bod
   assert_eq(events, ["1"])
   assert_eq(buffered.text(), "a\nb\nc\n", msg="the body stays readable")
 }
+
+///|
+/// A body stream fed from a queue: each `put` is one chunk, `None` the end.
+struct Queued {
+  queue : @aqueue.Queue[Bytes?]
+}
+
+///|
+impl @http.BodyStream for Queued with fn read_some(self) {
+  self.queue.get() catch {
+    _ => None
+  }
+}
+
+///|
+impl @http.BodyStream for Queued with fn close(_) {
+  ()
+}
+
+///|
+/// A transport streaming an event stream from `body`.
+struct QueuedTransport {
+  body : Queued
+}
+
+///|
+impl @http.Transport for QueuedTransport with fn send(_, _) {
+  raise @http.HttpError::Protocol("buffered calls are not used here")
+}
+
+///|
+impl @http.Transport for QueuedTransport with fn send_stream(self, _) {
+  (
+    { status: 200, headers: @http.Headers::from_array(event_stream), },
+    self.body,
+  )
+}
+
+///|
+/// Runs `call` in the background; the outcome lands in the returned cell as
+/// `"ended"` or the error's variant, phase and limit.
+fn sse_bg(
+  group : @async.TaskGroup[Unit],
+  call : async () -> Unit,
+) -> Ref[String?] {
+  let outcome = Ref(None)
+  group.spawn_bg(() => {
+    outcome.val = Some(
+      try call() catch {
+        @requesto.RequestoError::Timeout(phase~, timeout~, ..) =>
+          "Timeout \{@debug.to_string(phase)} \{timeout}"
+        error => "unexpected \{error}"
+      } noraise {
+        _ => "ended"
+      },
+    )
+  })
+  outcome
+}
+
+///|
+async test "sse waits 5 minutes for the next bytes by default, and idle_timeout replaces it" {
+  let clock = @simclock.VirtualClock()
+  let body = Queued::{ queue: Queue(kind=Unbounded), }
+  let client = @requesto.Client::new(
+    transport=QueuedTransport::{ body, },
+    clock~,
+    retry=@requesto.Retry::none(),
+  )
+  @async.with_task_group(group => {
+    let seen = []
+    let outcome = sse_bg(group, () => {
+      client.sse("GET", "https://a.test/events", event => seen.push(event.data))
+    })
+    clock.advance(240_000)
+    body.queue.put(Some(b"data: after 4 minutes\n\n"))
+    clock.settle()
+    assert_eq(seen, ["after 4 minutes"], msg="past the 30 s timeout")
+    clock.advance(299_999)
+    assert_eq(outcome.val, None)
+    clock.advance(1)
+    assert_eq(outcome.val, Some("Timeout Body 300000"))
+  })
+  @async.with_task_group(group => {
+    let short = sse_bg(group, () => {
+      client.sse("GET", "https://a.test/events", idle_timeout=Some(1000), _ => {
+        ()
+      })
+    })
+    let unbounded = sse_bg(group, () => {
+      client.sse("GET", "https://a.test/events", idle_timeout=None, _ => ())
+    })
+    clock.advance(1000)
+    assert_eq(short.val, Some("Timeout Body 1000"))
+    clock.advance(10_000_000)
+    assert_eq(unbounded.val, None, msg="no bound")
+    body.queue.put(None)
+    clock.settle()
+    assert_eq(unbounded.val, Some("ended"))
+    assert_eq(clock.pending(), [])
+  })
+}
+
+///|
+async test "each_event on a streamed response keeps the call's timeout unless idle_timeout replaces it" {
+  let clock = @simclock.VirtualClock()
+  let body = Queued::{ queue: Queue(kind=Unbounded), }
+  let client = @requesto.Client::new(
+    transport=QueuedTransport::{ body, },
+    clock~,
+    timeout=100,
+    retry=@requesto.Retry::none(),
+  )
+  @async.with_task_group(group => {
+    let kept = sse_bg(group, () => {
+      client.stream("GET", "https://a.test/events", response => {
+        response.each_event(_ => ())
+      })
+    })
+    let replaced = sse_bg(group, () => {
+      client.stream("GET", "https://a.test/events", response => {
+        response.each_event(_ => (), idle_timeout=Some(500))
+      })
+    })
+    clock.advance(100)
+    assert_eq(kept.val, Some("Timeout Body 100"))
+    assert_eq(replaced.val, None)
+    clock.advance(400)
+    assert_eq(replaced.val, Some("Timeout Body 500"))
+    assert_eq(clock.pending(), [])
+  })
+}
