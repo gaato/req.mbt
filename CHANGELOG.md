@@ -14,7 +14,7 @@ never does. Every breaking change is listed with a migration note.
 - **`Auth` is `#non_exhaustive`.** Another credential scheme can then be
   added without breaking matches in your code. Migration: a `match` on
   `Auth` ends with `@req.Auth::.. => …` after the existing constructors.
-- **Works with `gaato/http` 0.4.0, whose `Phase` is `#non_exhaustive`.** A
+- **Requires `gaato/http` 0.4.0, whose `Phase` is `#non_exhaustive`.** A
   phase this version does not know is named in no message, as `Unknown` is.
 
 ## [0.1.2] - 2026-10-19
