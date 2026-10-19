@@ -22,7 +22,7 @@ preferred_target = "native"
 
 import {
   "gaato/http@0.4.0",
-  "gaato/http-async@0.4.0",
+  "gaato/http-async@0.4.1",
   "moonbitlang/async@0.22.5",
   "moonbitlang/x@0.5.5",
 }
