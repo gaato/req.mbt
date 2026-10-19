@@ -6,6 +6,7 @@ import {
   "gaato/http-async" @adapter,
   "gaato/http/multipart",
   "gaato/http/random",
+  "gaato/http/retry",
   "moonbitlang/core/debug",
   "moonbitlang/core/encoding/base64",
   "moonbitlang/core/encoding/utf8",

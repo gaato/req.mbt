@@ -77,10 +77,54 @@ pub fn Retry::none() -> Retry {
 }
 
 ///|
+/// The policy as a `@retry.RetryRule`, which makes every decision:
+/// `statuses` for `methods`, any other failure after sending for `methods`,
+/// and a failure before sending for any method; `Retry-After` up to
+/// `max_retry_after`, else full jitter.
+fn Retry::rule(self : Retry) -> @retry.RetryRule {
+  let methods : @retry.Methods = Listed(self.methods)
+  {
+    max_retries: self.max_retries,
+    statuses: [
+      { statuses: self.statuses.map(status => Code(status)), methods, },
+    ],
+    sent_failures: methods,
+    unsent_failures: true,
+    override_header: None,
+    retry_after: {
+      source: Header,
+      cap: StopAbove(self.max_retry_after),
+      zero_means_backoff: false,
+    },
+    backoff: { base_ms: self.base_delay, max_ms: self.max_delay, jitter: Full, },
+  }
+}
+
+///|
+/// `outcome` as the retry core sees it, or `None` for a failure that is
+/// never sent again (`TotalTimeout`, or one raised before or after the
+/// transport). A connection that was never made becomes `Connect`, so that
+/// the core counts it as unsent, as `RequestoError::is_unsent` does.
+fn retry_outcome(outcome : Result[Response, RequestoError]) -> @retry.Outcome? {
+  let error : @http.HttpError = match outcome {
+    Ok(response) =>
+      return Some(Response(status=response.status, headers=response.headers))
+    Err(Timeout(phase~, timeout~, ..)) => Timeout(phase~, ms=timeout)
+    Err(Network(phase=Pool | Dial, message~, ..)) => Connect(message)
+    Err(Network(phase~, message~, ..)) => Network(phase~, message~)
+    Err(Protocol(message~, ..)) => Protocol(message)
+    Err(Proxy(status~, message~, ..)) => Proxy(status~, message~)
+    Err(_) => return None
+  }
+  Some(Failure(error))
+}
+
+///|
 /// The wait in milliseconds before sending `request` again, after `outcome`
 /// was the result of retry number `retries` (0 for the first send), or
 /// `None` to keep the outcome. `now_ms` reads an HTTP-date `Retry-After`;
-/// `random`, in `[0, 1)`, draws the backoff.
+/// `random`, in `[0, 1)`, draws the backoff; a wait that is not shorter
+/// than `remaining_ms` is not taken.
 fn Retry::delay_ms(
   self : Retry,
   request : Request,
@@ -88,62 +132,23 @@ fn Retry::delay_ms(
   retries : Int32,
   now_ms : Int64,
   random : Double,
+  remaining_ms? : Int64,
 ) -> Int32? {
-  guard retries < self.max_retries && request.body.is_replayable() else {
-    return None
+  guard retry_outcome(outcome) is Some(outcome) else { return None }
+  let decision = self
+    .rule()
+    .decide(
+      outcome,
+      request,
+      attempt=retries,
+      random~,
+      now_unix_ms=now_ms,
+      remaining_ms?,
+    )
+  match decision {
+    Wait(delay) => Some(delay)
+    Stop(_) => None
   }
-  guard self.retryable(request, outcome) else { return None }
-  let server = match outcome {
-    Ok(response) =>
-      response.headers
-      .get("retry-after")
-      .bind(value => @http.parse_retry_after(value, now_unix_ms=now_ms))
-    Err(_) => None
-  }
-  match server {
-    Some(ms) if ms > self.max_retry_after => None
-    Some(ms) => Some(ms)
-    None => Some(full_jitter(self.base_delay, self.max_delay, retries, random))
-  }
-}
-
-///|
-/// Whether `outcome` is worth sending `request` again, leaving aside the
-/// count and the body.
-fn Retry::retryable(
-  self : Retry,
-  request : Request,
-  outcome : Result[Response, RequestoError],
-) -> Bool {
-  let idempotent = self.methods.contains(request.http_method.to_upper())
-  match outcome {
-    Ok(response) => idempotent && self.statuses.contains(response.status)
-    // A proxy that refuses with 403 or 407 refuses again; 502 and 504 may
-    // pass.
-    Err(Proxy(status~, ..)) => self.statuses.contains(status)
-    Err(error) if error.is_unsent() => true
-    Err(Timeout(..) | Network(..)) => idempotent
-    Err(_) => false
-  }
-}
-
-///|
-/// A wait drawn uniformly between 0 and `base * 2 ^ retries`, capped at
-/// `max` (AWS's "full jitter"). `random` is clamped into `[0, 1)`.
-fn full_jitter(
-  base : Int32,
-  max : Int32,
-  retries : Int32,
-  random : Double,
-) -> Int32 {
-  let cap = max.to_double()
-  let mut ceiling = base.to_double().min(cap)
-  for _ in 0..<retries {
-    guard ceiling < cap else { break }
-    ceiling = (ceiling * 2.0).min(cap)
-  }
-  let random = if random >= 0.0 { random.min(0.9999999999999999) } else { 0.0 }
-  (ceiling * random).to_int()
 }
 
 ///|
@@ -167,11 +172,15 @@ fn retry_step(
         response => Ok(response)
       }
       let now = clock.now_unix_ms()
-      let delay = retry
-        .delay_ms(request, outcome, retries, now, random())
-        .filter(delay => {
-          deadline is None || now + delay.to_int64() < deadline.unwrap()
-        })
+      let remaining_ms = deadline.map(deadline => deadline - now)
+      let delay = retry.delay_ms(
+        request,
+        outcome,
+        retries,
+        now,
+        random(),
+        remaining_ms?,
+      )
       guard delay is Some(delay) else {
         match outcome {
           Ok(response) if retries == 0 => return response

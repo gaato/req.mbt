@@ -7,6 +7,15 @@ never does. Every breaking change is listed with a migration note.
 
 ## [Unreleased]
 
+### Changed
+
+- **Retry decisions now come from `gaato/http/retry`**, the retry core
+  shared with `gaato/sdk-runtime`: a `Retry` becomes a `RetryRule` and each
+  failed send asks it whether and how long to wait. Behaviour is unchanged:
+  the same statuses, methods, unsent failures, `Retry-After` and its cap,
+  backoff draws and `total_timeout` cut-off as in 0.2.0.
+- **Requires `gaato/http` 0.4.1 and `gaato/http-async` 0.4.2.**
+
 ## [0.2.0] - 2026-10-19
 
 ### Added
