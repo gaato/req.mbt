@@ -210,7 +210,8 @@ fn map_transport_error(error : Error, request : Request) -> RequestoError {
 }
 
 ///|
-/// How a message names the phase it failed in; nothing for `Unknown`.
+/// How a message names the phase it failed in; nothing for `Unknown` or a
+/// phase this version does not know.
 fn phase_suffix(phase : Phase) -> String {
   match phase {
     Pool => " waiting for a connection"
@@ -218,7 +219,7 @@ fn phase_suffix(phase : Phase) -> String {
     Write => " sending the request"
     Head => " waiting for the response"
     Body => " reading the body"
-    Unknown => ""
+    Unknown | @http.Phase::.. => ""
   }
 }
 

@@ -1,6 +1,7 @@
 ///|
 /// Credentials sent in the `Authorization` header. A call that sets that
 /// header itself keeps its own.
+#non_exhaustive
 pub(all) enum Auth {
   /// HTTP Basic: `username:password`, UTF-8 and base64-encoded.
   Basic(username~ : String, password~ : String)

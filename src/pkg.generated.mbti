@@ -62,6 +62,7 @@ pub impl Show for RequestoError
 pub impl @debug.Debug for RequestoError
 
 // Types and methods
+#non_exhaustive
 pub(all) enum Auth {
   Basic(username~ : String, password~ : String)
   Bearer(String)
