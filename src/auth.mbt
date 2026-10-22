@@ -21,6 +21,7 @@ pub(all) enum Auth {
 pub extend Auth with @debug.Debug::{to_repr}
 
 ///|
+/// Shows the scheme and the username, with secrets as `<redacted>`.
 pub impl @debug.Debug for Auth with fn to_repr(self) {
   let redacted = @debug.Repr::literal("<redacted>")
   match self {

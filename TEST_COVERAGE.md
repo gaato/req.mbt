@@ -12,7 +12,7 @@ ledger:
 
 ## Running it
 
-```fish
+```sh
 scripts/coverage_report.sh                    # measure, print tables, check the ledger
 scripts/coverage_report.sh --from-json _build/coverage_report.json   # recheck only
 ```

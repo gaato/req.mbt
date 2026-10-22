@@ -7,6 +7,14 @@ never does. Every breaking change is listed with a migration note.
 
 ## [Unreleased]
 
+### Changed
+
+- **The README has sections and a compile-checked example.** It now has
+  Install, Usage, Limits and timeouts, Testing, Links and License sections;
+  its examples are type-checked with the tests, and every public declaration
+  has a doc comment. The package no longer ships the repository's notes,
+  ledgers and scripts.
+
 ## [0.2.2] - 2026-10-22
 
 ### Changed

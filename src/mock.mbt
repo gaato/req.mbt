@@ -29,6 +29,7 @@ pub fn MockTransport::new(
 }
 
 ///|
+/// Makes `send` and `send_stream` callable as methods on a `MockTransport`.
 pub extend MockTransport with @http.Transport::{send, send_stream}
 
 ///|

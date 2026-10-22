@@ -51,6 +51,8 @@ pub(all) suberror RequestoError {
 pub extend RequestoError with @debug.Debug::{to_repr}
 
 ///|
+/// Shows the variant and its fields, each request as its method and redacted
+/// URL.
 pub impl @debug.Debug for RequestoError with fn to_repr(self) {
   let request = (request : Request) => {
     @debug.Repr::literal(request.http_method + " " + redact_url(request.url))

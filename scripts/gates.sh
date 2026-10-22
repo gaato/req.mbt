@@ -35,6 +35,8 @@ for t in "${targets[@]}"; do
   MOON_CC="${MOON_CC:-cc}" run timeout 300 moon test --target "$t"
 done
 run moon fmt --check
+# Module README sections, published links and doc comments (shared across gaato repos).
+run moon run scripts/docs_audit.mbtx --self-test
 run moon info
 # Only meaningful in CI: in a jj working copy `git diff` compares against the parent change,
 # so uncommitted edits would look stale. Set REQ_CHECK_MBTI=1 to enforce locally.

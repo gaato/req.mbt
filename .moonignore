@@ -1,0 +1,15 @@
+# Packaging rules for gaato/requesto. This file replaces .gitignore for the
+# package, so it repeats the build outputs from there.
+_build/
+target/
+.mooncakes/
+.moonagent/
+# Repository-only files: notes, ledgers, scripts, CI and toolchain settings.
+.notes/
+.github/
+scripts/
+RESOURCE_BOUNDS.md
+TEST_COVERAGE.md
+AGENTS.md
+renovate.json
+moonbit-version
