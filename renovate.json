@@ -2,5 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "gaato/.github is our own reusable workflow, referenced at main so a change reaches every repository at once.",
+      "matchPackageNames": [
+        "gaato/.github"
+      ],
+      "enabled": false
+    }
   ]
 }
