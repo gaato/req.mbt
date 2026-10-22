@@ -7,6 +7,19 @@ never does. Every breaking change is listed with a migration note.
 
 ## [Unreleased]
 
+### Changed
+
+- **Requires `gaato/http` 0.5.0 and `gaato/http-async` 0.5.0**, and
+  `moonbitlang/x` 0.5.6. No API of requesto changes. What a caller can
+  notice comes from those releases: a client's cookie jar follows RFC 6265bis-22,
+  `Retry-After` also accepts the obsolete HTTP-date forms, `*.example.com` in
+  `NO_PROXY` bypasses the proxy like `.example.com`, gzip, deflate, Brotli and
+  zstd bodies are decoded by `gaato/deflate`, `gaato/brotli` and `gaato/zstd`
+  (the `Protocol` error text for a malformed gzip or deflate body reads
+  differently), and a stream reader receives the output decoded before an error.
+- Built with MoonBit 0.10.16. `moon info` now prints `Int` as `Int32` in
+  `pkg.generated.mbti`; it is the same type.
+
 ## [0.2.1] - 2026-10-19
 
 ### Changed
