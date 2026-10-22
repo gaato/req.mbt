@@ -7,6 +7,8 @@ never does. Every breaking change is listed with a migration note.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-22
+
 ### Changed
 
 - **Requires `gaato/http` 0.5.0 and `gaato/http-async` 0.5.0**, and
